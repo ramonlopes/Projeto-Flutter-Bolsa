@@ -1,0 +1,15 @@
+# Node
+api_node/node_modules/
+api_node/.env
+
+# Flutter
+app_flutter/build/
+app_flutter/.dart_tool/
+app_flutter/.env
+
+# Artefatos
+*.log
+
+# SO
+Thumbs.db
+.DS_Store

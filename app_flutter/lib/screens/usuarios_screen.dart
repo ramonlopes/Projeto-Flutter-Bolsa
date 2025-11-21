@@ -50,7 +50,6 @@ class _UsuariosScreenState extends State<UsuariosScreen> {
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: () async {
-          // Exemplo simples de criação
           try {
             final novo = await service.criarUsuario(
               Usuario(nome: 'Teste ${DateTime.now().millisecondsSinceEpoch}', email: 'teste${DateTime.now().millisecondsSinceEpoch}@mail.com', senha: '123'),
