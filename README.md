@@ -77,4 +77,5 @@ Adicionar no package.json (api_node):
 
 ## Licença
 Definir (ex: MIT).
+
 [![CI](https://github.com/ramonlopes/Projeto-Flutter-Bolsa/actions/workflows/ci.yml/badge.svg)](https://github.com/ramonlopes/Projeto-Flutter-Bolsa/actions/workflows/ci.yml)
