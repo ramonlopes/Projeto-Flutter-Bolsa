@@ -17,3 +17,4 @@ Thumbs.db
 # dotenv environment variables file
 .env
 .env.test
+api_node/.env

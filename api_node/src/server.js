@@ -1,21 +1,22 @@
-import express from "express";
-import cors from "cors";
-import dotenv from "dotenv";
-dotenv.config();
+import express from 'express';
+import cors from 'cors';
+import dotenv from 'dotenv';
 
-import sequelize from "./config/database.js";
-import usuarioRoutes from "./routes/usuarioRoutes.js";
-import acaoRoutes from "./routes/acaoRoutes.js";
+import sequelize from './config/database.js';
+import usuarioRoutes from './routes/usuarioRoutes.js';
+import acaoRoutes from './routes/acaoRoutes.js';
+
+dotenv.config();
 
 const app = express();
 
-// Logs simples p/ debug
+// Logs simples
 app.use((req, res, next) => {
   console.log(`[${new Date().toISOString()}] ${req.method} ${req.url} Origin=${req.headers.origin || '-'}`);
   next();
 });
 
-// CORS (permite localhost e pré-flight)
+// CORS para localhost
 app.use(cors({
   origin: (origin, cb) => {
     if (!origin) return cb(null, true);
@@ -23,7 +24,8 @@ app.use(cors({
     return cb(new Error('Origem não permitida'));
   },
   methods: ['GET','POST','PUT','DELETE','OPTIONS'],
-  allowedHeaders: ['Content-Type','Authorization','Accept'], // inclui Accept
+  allowedHeaders: ['Content-Type','Authorization','Accept'],
+  credentials: false,
   maxAge: 86400
 }));
 app.options('*', cors());
@@ -33,32 +35,31 @@ app.use(express.json());
 // Healthcheck
 app.get('/healthz', (req, res) => res.status(200).json({ ok: true }));
 
-app.use("/usuarios", usuarioRoutes);
-app.use("/acoes", acaoRoutes);
+// Rotas
+app.use('/usuarios', usuarioRoutes);
+app.use('/acoes', acaoRoutes);
 
-// 404 e errors
+// 404
 app.use((req, res) => res.status(404).json({ error: 'Rota não encontrada' }));
+
+// Handler de erro
 app.use((err, req, res, next) => {
   console.error('Erro:', err);
   res.status(500).json({ error: err.message || 'Erro interno' });
 });
 
-console.log('ENV DB=', process.env.POSTGRES_DB);
-console.log('ENV USER=', process.env.POSTGRES_USER);
-console.log('ENV PASS typeof=', typeof process.env.POSTGRES_PASSWORD);
-
+// Start
 const start = async () => {
   try {
     await sequelize.authenticate();
-    console.log("Conectado ao Postgres com sucesso.");
-    await sequelize.sync(); // certifique-se que não há { force: true } ou { alter: true }
-    console.log("Modelos sincronizados.");
+    console.log('Conectado ao Postgres.');
+    await sequelize.sync(); // sem force/alter
     const PORT = process.env.PORT || 3000;
-    app.listen(PORT, '0.0.0.0', () =>
-      console.log(`Servidor rodando em http://localhost:${PORT}`)
-    );
-  } catch (err) {
-    console.error("Erro ao iniciar servidor:", err);
+    app.listen(PORT, '0.0.0.0', () => {
+      console.log(`Servidor rodando em http://localhost:${PORT}`);
+    });
+  } catch (e) {
+    console.error('Erro ao iniciar servidor:', e);
     process.exit(1);
   }
 };
