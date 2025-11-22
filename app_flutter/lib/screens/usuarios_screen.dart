@@ -50,6 +50,7 @@ class _UsuariosScreenState extends State<UsuariosScreen> {
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: () async {
+          final messenger = ScaffoldMessenger.of(context); // captura antes do await
           try {
             final novo = await service.criarUsuario(
               Usuario(
@@ -58,14 +59,14 @@ class _UsuariosScreenState extends State<UsuariosScreen> {
                 senha: '123',
               ),
             );
-            if (!mounted) return; // antes de usar context/setState
+            if (!mounted) return;
             setState(() {
               _futuro = service.listarUsuarios();
             });
-            ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Criado: ${novo.email}')));
+            messenger.showSnackBar(SnackBar(content: Text('Criado: ${novo.email}')));
           } catch (e) {
             if (!mounted) return;
-            ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Erro: $e')));
+            messenger.showSnackBar(SnackBar(content: Text('Erro: $e')));
           }
         },
         child: const Icon(Icons.add),
