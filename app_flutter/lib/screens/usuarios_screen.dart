@@ -52,13 +52,19 @@ class _UsuariosScreenState extends State<UsuariosScreen> {
         onPressed: () async {
           try {
             final novo = await service.criarUsuario(
-              Usuario(nome: 'Teste ${DateTime.now().millisecondsSinceEpoch}', email: 'teste${DateTime.now().millisecondsSinceEpoch}@mail.com', senha: '123'),
+              Usuario(
+                nome: 'Teste ${DateTime.now().millisecondsSinceEpoch}',
+                email: 'teste${DateTime.now().millisecondsSinceEpoch}@mail.com',
+                senha: '123',
+              ),
             );
+            if (!mounted) return; // antes de usar context/setState
             setState(() {
               _futuro = service.listarUsuarios();
             });
             ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Criado: ${novo.email}')));
           } catch (e) {
+            if (!mounted) return;
             ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Erro: $e')));
           }
         },
