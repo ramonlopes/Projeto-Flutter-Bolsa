@@ -68,7 +68,7 @@ jobs:
         run: flutter analyze --no-fatal-infos --no-fatal-warnings
       - name: Test
         working-directory: app_flutter
-        run: flutter test || echo "Sem testes"
+        run: flutter test
       - name: Build Web
         working-directory: app_flutter
         run: flutter build web --release
