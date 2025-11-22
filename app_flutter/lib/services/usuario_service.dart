@@ -5,11 +5,16 @@ import '../config/api_config.dart';
 import '../models/usuario.dart';
 
 class UsuarioService {
-  final String endpoint = ApiConfig.usuarios;
+  UsuarioService({http.Client? client, String? endpoint})
+      : client = client ?? http.Client(),
+        endpoint = endpoint ?? ApiConfig.usuarios;
+
+  final http.Client client;
+  final String endpoint;
 
   Future<List<Usuario>> listarUsuarios() async {
     debugPrint('GET usuarios -> $endpoint');
-    final resp = await http
+    final resp = await client
         .get(Uri.parse(endpoint), headers: {'Accept': 'application/json'})
         .timeout(const Duration(seconds: 10));
     debugPrint('Status usuarios: ${resp.statusCode}');
@@ -22,7 +27,7 @@ class UsuarioService {
   }
 
   Future<Usuario> criarUsuario(Usuario usuario) async {
-    final resp = await http
+    final resp = await client
         .post(
           Uri.parse(endpoint),
           headers: {'Content-Type': 'application/json', 'Accept': 'application/json'},

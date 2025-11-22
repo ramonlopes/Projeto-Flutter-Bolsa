@@ -5,11 +5,16 @@ import '../config/api_config.dart';
 import '../models/acao.dart';
 
 class AcaoService {
-  final String endpoint = ApiConfig.acoes;
+  AcaoService({http.Client? client, String? endpoint})
+      : client = client ?? http.Client(),
+        endpoint = endpoint ?? ApiConfig.acoes;
+
+  final http.Client client;
+  final String endpoint;
 
   Future<List<Acao>> listarAcoes() async {
     debugPrint('GET $endpoint');
-    final resp = await http
+    final resp = await client
         .get(Uri.parse(endpoint), headers: {'Accept': 'application/json'})
         .timeout(const Duration(seconds: 10));
     debugPrint('Status: ${resp.statusCode}');
