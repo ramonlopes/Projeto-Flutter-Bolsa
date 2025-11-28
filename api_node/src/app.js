@@ -2,6 +2,7 @@ import express from 'express';
 import cors from 'cors';
 import usuarioRoutes from './routes/usuarioRoutes.js';
 import acaoRoutes from './routes/acaoRoutes.js';
+import transacaoRoutes from './routes/transacaoRoutes.js';
 
 export function createApp() {
   const app = express();
@@ -30,6 +31,7 @@ export function createApp() {
 
   app.use('/usuarios', usuarioRoutes);
   app.use('/acoes', acaoRoutes);
+  app.use('/transacoes', transacaoRoutes);
 
   app.use((req, res) => res.status(404).json({ error: 'Rota não encontrada' }));
 

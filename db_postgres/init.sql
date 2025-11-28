@@ -20,3 +20,14 @@ CREATE TABLE IF NOT EXISTS acoes (
   nome_empresa VARCHAR(100) NOT NULL,
   preco_atual NUMERIC(10,2) NOT NULL
 );
+
+-- Tabela de transações
+CREATE TABLE IF NOT EXISTS transacoes (
+  id SERIAL PRIMARY KEY,
+  usuario_id INT NOT NULL REFERENCES usuarios(id) ON DELETE CASCADE,
+  acao_id INT NOT NULL REFERENCES acoes(id) ON DELETE CASCADE,
+  tipo VARCHAR(10) NOT NULL CHECK (tipo IN ('compra', 'venda')),
+  quantidade INT NOT NULL CHECK (quantidade > 0),
+  preco_unitario NUMERIC(10,2) NOT NULL,
+  data_transacao TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);

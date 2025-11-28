@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'acoes_screen.dart';
 import 'usuarios_screen.dart';
+import 'transacoes_screen.dart';
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
@@ -30,6 +31,15 @@ class HomeScreen extends StatelessWidget {
                 );
               },
               child: const Text('Usuários'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const TransacoesScreen()),
+                );
+              },
+              child: const Text('Transações'),
             ),
           ],
         ),
