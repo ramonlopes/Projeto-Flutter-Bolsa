@@ -1,50 +1,90 @@
-import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
-import 'package:google_sign_in/google_sign_in.dart';
 import '../services/auth_service.dart';
+import 'home_screen.dart';
 
-class LoginScreen extends StatelessWidget {
-  LoginScreen({super.key});
+class LoginScreen extends StatefulWidget {
+  const LoginScreen({super.key});
 
-  final GoogleSignIn _google = GoogleSignIn(
-    clientId: kIsWeb ? 'SEU_CLIENT_ID_WEB.apps.googleusercontent.com' : null,
-    scopes: ['email', 'profile'],
-  );
+  @override
+  State<LoginScreen> createState() => _LoginScreenState();
+}
 
-  final _auth = AuthService();
+class _LoginScreenState extends State<LoginScreen> {
+  final _formKey = GlobalKey<FormState>();
+  final _authService = AuthService();
+  final _emailController = TextEditingController();
+  final _senhaController = TextEditingController();
+  bool _loading = false;
 
-  Future<void> _handleSignIn(BuildContext context) async {
+  @override
+  void dispose() {
+    _emailController.dispose();
+    _senhaController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _login() async {
+    if (!_formKey.currentState!.validate()) return;
+    setState(() => _loading = true);
     try {
-      final acc = await _google.signIn();
-      if (acc == null) return;
-      final auth = await acc.authentication;
-      final idToken = auth.idToken;
-      if (idToken == null) throw Exception('ID Token não recebido');
-
-      // checagem antes de usar context após awaits
-      if (!context.mounted) return;
-      final user = await _auth.signInWithGoogle(idToken);
-
-      if (!context.mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Bem-vindo, ${user['nome']}')),
+      await _authService.login(_emailController.text, _senhaController.text);
+      if (!mounted) return;
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (_) => const HomeScreen()),
       );
-      // if (!context.mounted) return;
-      // Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const AcoesScreen()));
     } catch (e) {
-      if (!context.mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Erro: $e')));
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Erro: $e')),
+      );
+    } finally {
+      if (mounted) setState(() => _loading = false);
     }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Login')),
       body: Center(
-        child: ElevatedButton(
-          onPressed: () => _handleSignIn(context),
-          child: const Text('Login com Google'),
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(24),
+          child: Form(
+            key: _formKey,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.account_balance, size: 64, color: Colors.blue),
+                const SizedBox(height: 16),
+                const Text('Bolsa de Valores',
+                    style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
+                const SizedBox(height: 32),
+                TextFormField(
+                  controller: _emailController,
+                  decoration: const InputDecoration(labelText: 'Email', border: OutlineInputBorder()),
+                  keyboardType: TextInputType.emailAddress,
+                  validator: (v) => v == null || v.isEmpty ? 'Obrigatório' : null,
+                ),
+                const SizedBox(height: 16),
+                TextFormField(
+                  controller: _senhaController,
+                  decoration: const InputDecoration(labelText: 'Senha', border: OutlineInputBorder()),
+                  obscureText: true,
+                  validator: (v) => v == null || v.isEmpty ? 'Obrigatório' : null,
+                ),
+                const SizedBox(height: 24),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: _loading ? null : _login,
+                    child: _loading
+                        ? const CircularProgressIndicator()
+                        : const Text('Entrar'),
+                  ),
+                ),
+              ],
+            ),
+          ),
         ),
       ),
     );

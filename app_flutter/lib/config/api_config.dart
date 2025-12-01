@@ -5,8 +5,8 @@ class ApiConfig {
   static String get baseUrl {
     if (_defined.isNotEmpty) return _defined;
     if (kIsWeb) return 'http://localhost:3000';
-    if (defaultTargetPlatform == TargetPlatform.android) return 'http://192.168.10.18:3000'; // IP DO PC
-    return 'http://localhost:3000'; // Windows, macOS, iOS simulador
+    if (defaultTargetPlatform == TargetPlatform.android) return 'http://192.168.10.100:3000'; // IP do PC
+    return 'http://localhost:3000'; // fallback para desktop
   }
 
   static String get usuarios => '$baseUrl/usuarios';
