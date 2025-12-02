@@ -273,7 +273,7 @@ class _TransacaoFormScreenState extends State<TransacaoFormScreen> with SingleTi
           icon: Icons.person,
           children: [
             DropdownButtonFormField<int>(
-              value: _selectedAcaoId,
+              initialValue: _selectedAcaoId,
               decoration: InputDecoration(
                 labelText: 'Ação',
                 border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
@@ -362,7 +362,7 @@ class _TransacaoFormScreenState extends State<TransacaoFormScreen> with SingleTi
           icon: Icons.trending_up,
           children: [
             DropdownButtonFormField<String?>(
-              value: _tipoOperacao,
+              initialValue: _tipoOperacao,
               decoration: InputDecoration(
                 labelText: 'Tipo de Operação',
                 border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),

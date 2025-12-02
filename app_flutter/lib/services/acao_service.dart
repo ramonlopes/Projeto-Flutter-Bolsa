@@ -84,14 +84,14 @@ class AcaoService {
     }
     final j = jsonDecode(resp.body) as Map<String, dynamic>;
 
-    double? _toDouble(dynamic v) {
+    double? toDouble(dynamic v) {
       if (v == null) return null;
       if (v is num) return v.toDouble();
       if (v is String) return double.tryParse(v.replaceAll(',', '.'));
       return null;
     }
 
-    int _toInt(dynamic v) {
+    int toInt(dynamic v) {
       if (v is int) return v;
       if (v is num) return v.toInt();
       if (v is String) return int.tryParse(v) ?? -1;
@@ -99,10 +99,10 @@ class AcaoService {
     }
 
     return Acao(
-      id: _toInt(j['id']),
+      id: toInt(j['id']),
       codigo: (j['codigo'] ?? j['symbol'] ?? codigo).toString(),
       nomeEmpresa: (j['nome_empresa'] ?? j['nomeEmpresa'] ?? '').toString(),
-      precoAtual: _toDouble(j['preco_atual'] ?? j['preco'] ?? j['price']),
+      precoAtual: toDouble(j['preco_atual'] ?? j['preco'] ?? j['price']),
     );
   }
 }
