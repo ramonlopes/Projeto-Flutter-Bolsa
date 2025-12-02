@@ -4,6 +4,7 @@ import '../services/transacao_service.dart';
 import '../models/transacao.dart';
 import 'transacao_form_screen.dart';
 import '../services/acao_service.dart';
+import '../models/acao.dart'; // adicione este import
 
 class TransacoesScreen extends StatefulWidget {
   const TransacoesScreen({super.key});
@@ -18,6 +19,9 @@ class _TransacoesScreenState extends State<TransacoesScreen> {
   final _acaoService = AcaoService();
   final _currency = NumberFormat.currency(locale: 'pt_BR', symbol: 'R\$');
   final _date = DateFormat('dd/MM/yyyy');
+  
+  String _filtroTipo = 'todas'; // 'todas', 'compra', 'venda'
+  String _ordenacao = 'data_desc'; // 'data_desc', 'data_asc', 'valor_desc', 'valor_asc'
 
   @override
   void initState() {
@@ -27,6 +31,58 @@ class _TransacoesScreenState extends State<TransacoesScreen> {
 
   void _recarregar() {
     setState(() => _futuro = service.listarTransacoes());
+  }
+
+  List<Transacao> _aplicarFiltros(List<Transacao> lista) {
+    // Filtrar por tipo
+    var filtrada = lista;
+    if (_filtroTipo != 'todas') {
+      filtrada = lista.where((t) => t.tipo.toLowerCase() == _filtroTipo).toList();
+    }
+
+    // Ordenar
+    switch (_ordenacao) {
+      case 'data_desc':
+        filtrada.sort((a, b) => (b.dataTransacao ?? DateTime(1900)).compareTo(a.dataTransacao ?? DateTime(1900)));
+        break;
+      case 'data_asc':
+        filtrada.sort((a, b) => (a.dataTransacao ?? DateTime(1900)).compareTo(b.dataTransacao ?? DateTime(1900)));
+        break;
+      case 'valor_desc':
+        filtrada.sort((a, b) => (b.precoUnitario * b.quantidade).compareTo(a.precoUnitario * a.quantidade));
+        break;
+      case 'valor_asc':
+        filtrada.sort((a, b) => (a.precoUnitario * a.quantidade).compareTo(b.precoUnitario * b.quantidade));
+        break;
+    }
+
+    return filtrada;
+  }
+
+  Map<String, double> _calcularEstatisticas(List<Transacao> lista) {
+    double totalCompras = 0;
+    double totalVendas = 0;
+    int countCompras = 0;
+    int countVendas = 0;
+
+    for (var t in lista) {
+      final valor = t.precoUnitario * t.quantidade;
+      if (t.tipo.toLowerCase() == 'compra') {
+        totalCompras += valor;
+        countCompras++;
+      } else {
+        totalVendas += valor;
+        countVendas++;
+      }
+    }
+
+    return {
+      'totalCompras': totalCompras,
+      'totalVendas': totalVendas,
+      'saldo': totalVendas - totalCompras,
+      'countCompras': countCompras.toDouble(),
+      'countVendas': countVendas.toDouble(),
+    };
   }
 
   Color _corTipo(Transacao t) => t.tipo.toLowerCase() == 'compra'
@@ -43,11 +99,25 @@ class _TransacoesScreenState extends State<TransacoesScreen> {
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Excluir transação?'),
-        content: Text('Confirma excluir ${t.tipo} - ${t.acaoCodigo ?? 'Ação ${t.acaoId}'}?'),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Row(
+          children: [
+            Icon(Icons.warning_amber_rounded, color: Colors.orange.shade700),
+            const SizedBox(width: 8),
+            const Text('Excluir transação?'),
+          ],
+        ),
+        content: Text('Confirma excluir ${t.tipo} de ${t.acaoCodigo ?? 'Ação ${t.acaoId}'}?'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancelar')),
-          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Excluir')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: FilledButton.styleFrom(backgroundColor: Colors.red),
+            child: const Text('Excluir'),
+          ),
         ],
       ),
     );
@@ -56,11 +126,35 @@ class _TransacoesScreenState extends State<TransacoesScreen> {
     try {
       await service.deletarTransacao(t.id!);
       if (!mounted) return;
-      messenger.showSnackBar(const SnackBar(content: Text('Transação excluída')));
+      messenger.showSnackBar(
+        SnackBar(
+          content: const Row(
+            children: [
+              Icon(Icons.check_circle, color: Colors.white),
+              SizedBox(width: 8),
+              Text('Transação excluída com sucesso'),
+            ],
+          ),
+          backgroundColor: Colors.green.shade700,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
       _recarregar();
     } catch (e) {
       if (!mounted) return;
-      messenger.showSnackBar(SnackBar(content: Text('Erro ao excluir: $e')));
+      messenger.showSnackBar(
+        SnackBar(
+          content: Row(
+            children: [
+              const Icon(Icons.error, color: Colors.white),
+              const SizedBox(width: 8),
+              Expanded(child: Text('Erro ao excluir: $e')),
+            ],
+          ),
+          backgroundColor: Colors.red.shade700,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
     }
   }
 
@@ -71,166 +165,507 @@ class _TransacoesScreenState extends State<TransacoesScreen> {
       backgroundColor: color ?? Colors.grey.shade200,
       labelStyle: TextStyle(
         color: color != null ? Colors.white : Colors.black87,
-        fontSize: 12,
+        fontSize: 11,
+        fontWeight: FontWeight.w500,
       ),
       materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
       padding: const EdgeInsets.symmetric(horizontal: 6),
+      visualDensity: VisualDensity.compact,
     );
   }
 
   Widget _precoChip(String codigo) {
-    return FutureBuilder<AcaoPreco>(
+    return FutureBuilder<Acao>(
       future: _acaoService.obterPreco(codigo),
       builder: (ctx, snap) {
         if (snap.connectionState == ConnectionState.waiting) {
-          return const Chip(label: Text('Carregando preço...'));
+          return const Chip(label: Text('Carregando...'));
         }
-        if (!snap.hasData) {
-          return const Chip(label: Text('Sem preço'));
-        }
-        final p = snap.data!;
-        final cor = (p.variacaoPercent ?? 0) >= 0 ? Colors.green : Colors.red;
+        if (!snap.hasData || snap.data!.precoAtual == null) return const SizedBox.shrink();
+        final preco = snap.data!.precoAtual!;
+        final cor = Colors.blue;
         return Chip(
-          label: Text('${p.moeda} ${p.preco.toStringAsFixed(2)} (${p.variacaoPercent?.toStringAsFixed(2) ?? '-'}%)'),
-          backgroundColor: cor.withOpacity(0.12),
-          labelStyle: TextStyle(color: cor, fontWeight: FontWeight.w600),
+          label: Text('R\$ ${preco.toStringAsFixed(2)}'),
+          backgroundColor: cor.withOpacity(0.15),
+          labelStyle: TextStyle(color: cor.shade800, fontWeight: FontWeight.w600, fontSize: 11),
         );
       },
+    );
+  }
+
+  Widget _estatisticasCard(Map<String, double> stats) {
+    return Container(
+      margin: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [Colors.blue.shade700, Colors.blue.shade500],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.blue.shade200,
+            blurRadius: 8,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text(
+                'Resumo Geral',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.analytics, color: Colors.white, size: 16),
+                    const SizedBox(width: 4),
+                    Text(
+                      '${stats['countCompras']!.toInt() + stats['countVendas']!.toInt()} ops',
+                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              Expanded(
+                child: _estatisticaItem(
+                  Icons.arrow_downward,
+                  'Compras',
+                  _currency.format(stats['totalCompras']),
+                  '${stats['countCompras']!.toInt()} ops',
+                  Colors.green.shade300,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _estatisticaItem(
+                  Icons.arrow_upward,
+                  'Vendas',
+                  _currency.format(stats['totalVendas']),
+                  '${stats['countVendas']!.toInt()} ops',
+                  Colors.red.shade300,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.15),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text(
+                  'Saldo',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                Text(
+                  _currency.format(stats['saldo']),
+                  style: TextStyle(
+                    color: stats['saldo']! >= 0 ? Colors.greenAccent : Colors.redAccent,
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _estatisticaItem(IconData icon, String label, String valor, String subtitulo, Color cor) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.15),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(icon, color: cor, size: 20),
+              const SizedBox(width: 6),
+              Text(
+                label,
+                style: TextStyle(
+                  color: Colors.white.withOpacity(0.9),
+                  fontSize: 12,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            valor,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          Text(
+            subtitulo,
+            style: TextStyle(
+              color: Colors.white.withOpacity(0.7),
+              fontSize: 11,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _filtrosBar() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: Colors.grey.shade50,
+        border: Border(bottom: BorderSide(color: Colors.grey.shade200)),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: [
+                  _filtroChip('Todas', 'todas'),
+                  const SizedBox(width: 8),
+                  _filtroChip('Compras', 'compra', icon: Icons.arrow_downward, cor: Colors.green),
+                  const SizedBox(width: 8),
+                  _filtroChip('Vendas', 'venda', icon: Icons.arrow_upward, cor: Colors.red),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          PopupMenuButton<String>(
+            icon: const Icon(Icons.sort),
+            tooltip: 'Ordenar',
+            onSelected: (val) => setState(() => _ordenacao = val),
+            itemBuilder: (ctx) => [
+              PopupMenuItem(
+                value: 'data_desc',
+                child: Row(
+                  children: [
+                    Icon(Icons.arrow_downward, size: 18, color: Colors.grey.shade700),
+                    const SizedBox(width: 8),
+                    const Text('Mais recentes'),
+                  ],
+                ),
+              ),
+              PopupMenuItem(
+                value: 'data_asc',
+                child: Row(
+                  children: [
+                    Icon(Icons.arrow_upward, size: 18, color: Colors.grey.shade700),
+                    const SizedBox(width: 8),
+                    const Text('Mais antigas'),
+                  ],
+                ),
+              ),
+              const PopupMenuDivider(),
+              PopupMenuItem(
+                value: 'valor_desc',
+                child: Row(
+                  children: [
+                    Icon(Icons.attach_money, size: 18, color: Colors.grey.shade700),
+                    const SizedBox(width: 8),
+                    const Text('Maior valor'),
+                  ],
+                ),
+              ),
+              PopupMenuItem(
+                value: 'valor_asc',
+                child: Row(
+                  children: [
+                    Icon(Icons.money_off, size: 18, color: Colors.grey.shade700),
+                    const SizedBox(width: 8),
+                    const Text('Menor valor'),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _filtroChip(String label, String valor, {IconData? icon, Color? cor}) {
+    final selecionado = _filtroTipo == valor;
+    return FilterChip(
+      label: Text(label),
+      avatar: icon != null ? Icon(icon, size: 16) : null,
+      selected: selecionado,
+      onSelected: (_) => setState(() => _filtroTipo = valor),
+      selectedColor: cor?.withOpacity(0.2) ?? Colors.blue.shade100,
+      checkmarkColor: cor ?? Colors.blue,
+      backgroundColor: Colors.white,
+      side: BorderSide(color: selecionado ? (cor ?? Colors.blue) : Colors.grey.shade300),
     );
   }
 
   Widget _card(Transacao t) {
     final total = t.precoUnitario * t.quantidade;
     return Card(
-      elevation: 1.5,
-      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: ListTile(
-        contentPadding: const EdgeInsets.fromLTRB(12, 8, 8, 8),
-        leading: CircleAvatar(
-          radius: 22,
-          backgroundColor: _corTipo(t).withOpacity(0.12),
-          child: Text(
-            (t.acaoCodigo ?? 'A').substring(0, 1).toUpperCase(),
-            style: TextStyle(color: _corTipo(t), fontWeight: FontWeight.bold),
-          ),
-        ),
-        title: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-              decoration: BoxDecoration(
-                color: _corTipo(t).withOpacity(0.12),
-                borderRadius: BorderRadius.circular(6),
-              ),
-              child: Text(
-                t.tipo.toUpperCase(),
-                style: TextStyle(
-                  color: _corTipo(t),
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: .3,
-                ),
-              ),
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Text(
-                t.acaoCodigo ?? 'Ação ${t.acaoId}',
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(fontWeight: FontWeight.w600),
-              ),
-            ),
-          ],
-        ),
-        subtitle: Padding(
-          padding: const EdgeInsets.only(top: 6),
+      elevation: 2,
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(16),
+        onTap: () async {
+          final ok = await Navigator.push<bool>(
+            context,
+            MaterialPageRoute(builder: (_) => TransacaoFormScreen(transacao: t)),
+          );
+          if (ok == true) _recarregar();
+        },
+        child: Padding(
+          padding: const EdgeInsets.all(16),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Row(
                 children: [
-                  Text('${t.quantidade} un. @ ${_currency.format(t.precoUnitario)}'),
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: _corTipo(t).withOpacity(0.12),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Icon(_corTipo(t) == Colors.green.shade600 ? Icons.arrow_downward : Icons.arrow_upward,
+                        color: _corTipo(t), size: 20),
+                  ),
                   const SizedBox(width: 12),
-                  Text('Total: ${_currency.format(total)}', style: const TextStyle(fontWeight: FontWeight.w600)),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                              decoration: BoxDecoration(
+                                color: _corTipo(t).withOpacity(0.15),
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: Text(
+                                t.tipo.toUpperCase(),
+                                style: TextStyle(
+                                  color: _corTipo(t),
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 11,
+                                  letterSpacing: .5,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              t.acaoCodigo ?? 'Ação ${t.acaoId}',
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 16,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          t.dataTransacao != null ? _date.format(t.dataTransacao!) : 'Sem data',
+                          style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
+                        ),
+                      ],
+                    ),
+                  ),
+                  PopupMenuButton<String>(
+                    onSelected: (v) async {
+                      if (v == 'edit') {
+                        final ok = await Navigator.push<bool>(
+                          context,
+                          MaterialPageRoute(builder: (_) => TransacaoFormScreen(transacao: t)),
+                        );
+                        if (ok == true) _recarregar();
+                      } else if (v == 'delete') {
+                        _confirmarExclusao(t);
+                      }
+                    },
+                    itemBuilder: (ctx) => [
+                      const PopupMenuItem(
+                        value: 'edit',
+                        child: Row(
+                          children: [
+                            Icon(Icons.edit, size: 18),
+                            SizedBox(width: 8),
+                            Text('Editar'),
+                          ],
+                        ),
+                      ),
+                      const PopupMenuItem(
+                        value: 'delete',
+                        child: Row(
+                          children: [
+                            Icon(Icons.delete, size: 18, color: Colors.red),
+                            SizedBox(width: 8),
+                            Text('Excluir', style: TextStyle(color: Colors.red)),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
                 ],
               ),
-              const SizedBox(height: 6),
-              Wrap(
-                spacing: 6,
-                runSpacing: -6,
+              const Divider(height: 24),
+              Row(
                 children: [
-                  if (t.tipoOperacao != null)
-                    _chip(t.tipoOperacao!, color: _corOperacao(t)),
-                  if ((t.nomeOpcao ?? '').isNotEmpty) _chip('Opção: ${t.nomeOpcao!}'),
-                  if (t.dataExercicio != null)
-                    _chip('Exercício: ${_date.format(t.dataExercicio!)}', icon: Icons.event),
-                  if (t.valorStrike != null)
-                    _chip('Strike: ${_currency.format(t.valorStrike)}'),
-                  if (t.porcentagemPremio != null)
-                    _chip('Prêmio: ${t.porcentagemPremio!.toStringAsFixed(2)}%'),
-                  if (t.valorPremioLiquido != null)
-                    _chip('Prêmio Líq.: ${_currency.format(t.valorPremioLiquido)}'),
-                  if (t.percentualRetorno != null)
-                    _chip('Retorno: ${t.percentualRetorno!.toStringAsFixed(2)}%'),
-                  if (t.percentualRetornoLiquido != null)
-                    _chip('Retorno Líq.: ${t.percentualRetornoLiquido!.toStringAsFixed(2)}%'),
-                  if (t.situacaoMomento != null)
-                    _chip('Momento: ${_currency.format(t.situacaoMomento)}'),
-                  if (t.valorCobertural != null)
-                    _chip('Cobert.: ${_currency.format(t.valorCobertural)}'),
-                  if (t.corretoraOperada != null && t.corretoraOperada!.isNotEmpty)
-                    _chip('Corretora: ${t.corretoraOperada!}'),
-                  if (t.exercidoOperacao == true)
-                    _chip('Exercido', color: Colors.teal.shade700, icon: Icons.check),
-                  if (t.valorIrrrf != null)
-                    _chip('IRRF: ${_currency.format(t.valorIrrrf)}'),
-                  if (t.acaoCodigo != null) _precoChip(t.acaoCodigo!),
+                  Expanded(
+                    child: _infoItem(
+                      'Quantidade',
+                      '${t.quantidade} un.',
+                      Icons.numbers,
+                      Colors.blue,
+                    ),
+                  ),
+                  Expanded(
+                    child: _infoItem(
+                      'Preço Unit.',
+                      _currency.format(t.precoUnitario),
+                      Icons.attach_money,
+                      Colors.orange,
+                    ),
+                  ),
+                  Expanded(
+                    child: _infoItem(
+                      'Total',
+                      _currency.format(total),
+                      Icons.calculate,
+                      Colors.purple,
+                    ),
+                  ),
                 ],
               ),
+              if (t.tipoOperacao != null || (t.nomeOpcao ?? '').isNotEmpty || t.dataExercicio != null) ...[
+                const SizedBox(height: 16),
+                Wrap(
+                  spacing: 6,
+                  runSpacing: 6,
+                  children: [
+                    if (t.tipoOperacao != null) _chip(t.tipoOperacao!, color: _corOperacao(t)),
+                    if ((t.nomeOpcao ?? '').isNotEmpty) _chip(t.nomeOpcao!, icon: Icons.label),
+                    if (t.dataExercicio != null)
+                      _chip('Exerc: ${_date.format(t.dataExercicio!)}', icon: Icons.event),
+                    if (t.valorStrike != null) _chip('Strike: ${_currency.format(t.valorStrike)}'),
+                    if (t.porcentagemPremio != null)
+                      _chip('Prêmio: ${t.porcentagemPremio!.toStringAsFixed(2)}%', color: Colors.teal),
+                    if (t.exercidoOperacao == true)
+                      _chip('Exercido', color: Colors.green.shade700, icon: Icons.check_circle),
+                    if (t.corretoraOperada != null && t.corretoraOperada!.isNotEmpty)
+                      _chip(t.corretoraOperada!, icon: Icons.business),
+                    if (t.acaoCodigo != null) _precoChip(t.acaoCodigo!),
+                  ],
+                ),
+              ],
             ],
           ),
         ),
-        trailing: Column(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      ),
+    );
+  }
+
+  Widget _infoItem(String label, String valor, IconData icon, Color cor) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisSize: MainAxisSize.min,
           children: [
+            Icon(icon, size: 14, color: cor),
+            const SizedBox(width: 4),
             Text(
-              t.dataTransacao != null ? _date.format(t.dataTransacao!) : '',
-              style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
-            ),
-            PopupMenuButton<String>(
-              onSelected: (v) async {
-                if (v == 'edit') {
-                  final ok = await Navigator.push<bool>(
-                    context,
-                    MaterialPageRoute(builder: (_) => TransacaoFormScreen(transacao: t)),
-                  );
-                  if (ok == true) _recarregar();
-                } else if (v == 'delete') {
-                  _confirmarExclusao(t);
-                }
-              },
-              itemBuilder: (ctx) => const [
-                PopupMenuItem(value: 'edit', child: Text('Editar')),
-                PopupMenuItem(value: 'delete', child: Text('Excluir')),
-              ],
+              label,
+              style: TextStyle(
+                color: Colors.grey.shade600,
+                fontSize: 11,
+                fontWeight: FontWeight.w500,
+              ),
             ),
           ],
         ),
-      ),
+        const SizedBox(height: 4),
+        Text(
+          valor,
+          style: const TextStyle(
+            fontWeight: FontWeight.bold,
+            fontSize: 13,
+          ),
+        ),
+      ],
     );
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Transações')),
+      backgroundColor: Colors.grey.shade50,
+      appBar: AppBar(
+        title: const Text('Minhas Transações'),
+        elevation: 0,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            tooltip: 'Recarregar',
+            onPressed: _recarregar,
+          ),
+        ],
+      ),
       body: RefreshIndicator(
         onRefresh: () async => _recarregar(),
         child: FutureBuilder<List<Transacao>>(
           future: _futuro,
           builder: (ctx, snap) {
             if (snap.connectionState == ConnectionState.waiting) {
-              return const Center(child: CircularProgressIndicator());
+              return const Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    CircularProgressIndicator(),
+                    SizedBox(height: 16),
+                    Text('Carregando transações...'),
+                  ],
+                ),
+              );
             }
             if (snap.hasError) {
               return Center(
@@ -239,11 +674,16 @@ class _TransacoesScreenState extends State<TransacoesScreen> {
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Icon(Icons.error_outline, size: 48, color: Colors.red),
-                      const SizedBox(height: 12),
-                      Text('Erro ao carregar: ${snap.error}', textAlign: TextAlign.center),
-                      const SizedBox(height: 12),
-                      FilledButton.icon(
+                      Icon(Icons.error_outline, size: 64, color: Colors.red.shade300),
+                      const SizedBox(height: 16),
+                      Text(
+                        'Erro ao carregar',
+                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.red.shade700),
+                      ),
+                      const SizedBox(height: 8),
+                      Text('${snap.error}', textAlign: TextAlign.center, style: TextStyle(color: Colors.grey.shade600)),
+                      const SizedBox(height: 16),
+                      ElevatedButton.icon(
                         onPressed: _recarregar,
                         icon: const Icon(Icons.refresh),
                         label: const Text('Tentar novamente'),
@@ -253,20 +693,23 @@ class _TransacoesScreenState extends State<TransacoesScreen> {
                 ),
               );
             }
-            final lista = snap.data ?? [];
-            if (lista.isEmpty) {
+            final todasTransacoes = snap.data ?? [];
+            if (todasTransacoes.isEmpty) {
               return Center(
                 child: Padding(
-                  padding: const EdgeInsets.all(24),
+                  padding: const EdgeInsets.all(32),
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(Icons.receipt_long, size: 64, color: Colors.grey.shade500),
-                      const SizedBox(height: 12),
-                      const Text('Nenhuma transação ainda'),
+                      Icon(Icons.inbox, size: 80, color: Colors.grey.shade300),
+                      const SizedBox(height: 16),
+                      Text(
+                        'Nenhuma transação ainda',
+                        style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.grey.shade700),
+                      ),
                       const SizedBox(height: 8),
                       Text(
-                        'Toque em "Adicionar" para lançar sua primeira transação.',
+                        'Toque no botão + para adicionar sua primeira transação',
                         style: TextStyle(color: Colors.grey.shade600),
                         textAlign: TextAlign.center,
                       ),
@@ -275,10 +718,40 @@ class _TransacoesScreenState extends State<TransacoesScreen> {
                 ),
               );
             }
-            return ListView.builder(
-              physics: const AlwaysScrollableScrollPhysics(),
-              itemCount: lista.length,
-              itemBuilder: (_, i) => _card(lista[i]),
+            
+            final listaFiltrada = _aplicarFiltros(todasTransacoes);
+            final stats = _calcularEstatisticas(todasTransacoes);
+
+            return Column(
+              children: [
+                _estatisticasCard(stats),
+                _filtrosBar(),
+                Expanded(
+                  child: listaFiltrada.isEmpty
+                      ? Center(
+                          child: Padding(
+                            padding: const EdgeInsets.all(24),
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(Icons.filter_alt_off, size: 64, color: Colors.grey.shade400),
+                                const SizedBox(height: 12),
+                                Text(
+                                  'Nenhuma transação com estes filtros',
+                                  style: TextStyle(color: Colors.grey.shade600),
+                                ),
+                              ],
+                            ),
+                          ),
+                        )
+                      : ListView.builder(
+                          physics: const AlwaysScrollableScrollPhysics(),
+                          padding: const EdgeInsets.only(bottom: 80, top: 8),
+                          itemCount: listaFiltrada.length,
+                          itemBuilder: (_, i) => _card(listaFiltrada[i]),
+                        ),
+                ),
+              ],
             );
           },
         ),
@@ -292,7 +765,8 @@ class _TransacoesScreenState extends State<TransacoesScreen> {
           if (ok == true) _recarregar();
         },
         icon: const Icon(Icons.add),
-        label: const Text('Adicionar'),
+        label: const Text('Nova Transação'),
+        elevation: 4,
       ),
     );
   }

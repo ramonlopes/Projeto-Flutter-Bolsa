@@ -14,67 +14,58 @@ class AcaoFormScreen extends StatefulWidget {
 class _AcaoFormScreenState extends State<AcaoFormScreen> {
   final _formKey = GlobalKey<FormState>();
   final _service = AcaoService();
-
   final _codigoController = TextEditingController();
-  final _nomeEmpresaController = TextEditingController();
+  final _nomeController = TextEditingController();
   final _precoAtualController = TextEditingController();
-
-  bool get _isEdicao => widget.acao != null;
 
   @override
   void initState() {
     super.initState();
-    if (_isEdicao) {
+    if (widget.acao != null) {
       _codigoController.text = widget.acao!.codigo;
-      _nomeEmpresaController.text = widget.acao!.nomeEmpresa;
-      _precoAtualController.text = widget.acao!.precoAtual.toString();
+      _nomeController.text = widget.acao!.nomeEmpresa;
+      _precoAtualController.text = (widget.acao!.precoAtual ?? '').toString();
     }
   }
 
   @override
   void dispose() {
     _codigoController.dispose();
-    _nomeEmpresaController.dispose();
+    _nomeController.dispose();
     _precoAtualController.dispose();
     super.dispose();
   }
 
-  double? _toDouble(String s) =>
-      s.trim().isEmpty ? null : double.tryParse(s.trim().replaceAll(',', '.'));
+  double? _toDouble(String s) => s.trim().isEmpty ? null : double.tryParse(s.replaceAll(',', '.'));
 
   Future<void> _salvar() async {
     if (!_formKey.currentState!.validate()) return;
-    final messenger = ScaffoldMessenger.of(context);
-    final navigator = Navigator.of(context);
+
+    final acao = Acao(
+      id: widget.acao?.id ?? 0,
+      codigo: _codigoController.text.trim(),
+      nomeEmpresa: _nomeController.text.trim(),
+      precoAtual: _toDouble(_precoAtualController.text),
+    );
 
     try {
-      final acao = Acao(
-        id: widget.acao?.id ?? 0,
-        codigo: _codigoController.text.trim().toUpperCase(),
-        nomeEmpresa: _nomeEmpresaController.text.trim(),
-        precoAtual: _toDouble(_precoAtualController.text)!,
-      );
-
-      if (_isEdicao) {
-        await _service.atualizarAcao(widget.acao!.id, acao);
-        if (!mounted) return;
-        messenger.showSnackBar(const SnackBar(content: Text('Ação atualizada')));
-      } else {
+      if (widget.acao == null) {
         await _service.criarAcao(acao);
-        if (!mounted) return;
-        messenger.showSnackBar(const SnackBar(content: Text('Ação criada')));
+      } else {
+        await _service.atualizarAcao(widget.acao!.id, acao);
       }
-      navigator.pop(true);
+      if (!mounted) return;
+      Navigator.pop(context, true);
     } catch (e) {
       if (!mounted) return;
-      messenger.showSnackBar(SnackBar(content: Text('Erro ao salvar: $e')));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Erro: $e')));
     }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text(_isEdicao ? 'Editar Ação' : 'Nova Ação')),
+      appBar: AppBar(title: Text(widget.acao == null ? 'Nova Ação' : 'Editar Ação')),
       body: Padding(
         padding: const EdgeInsets.all(16),
         child: Form(
@@ -83,48 +74,23 @@ class _AcaoFormScreenState extends State<AcaoFormScreen> {
             children: [
               TextFormField(
                 controller: _codigoController,
-                decoration: const InputDecoration(
-                  labelText: 'Código da Ação',
-                  hintText: 'Ex.: PETR4, VALE3',
-                ),
-                textCapitalization: TextCapitalization.characters,
-                validator: (val) {
-                  if (val == null || val.trim().isEmpty) return 'Obrigatório';
-                  return null;
-                },
+                decoration: const InputDecoration(labelText: 'Código', border: OutlineInputBorder()),
+                validator: (v) => v == null || v.isEmpty ? 'Obrigatório' : null,
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 12),
               TextFormField(
-                controller: _nomeEmpresaController,
-                decoration: const InputDecoration(
-                  labelText: 'Nome da Empresa',
-                  hintText: 'Ex.: Petrobras PN',
-                ),
-                validator: (val) {
-                  if (val == null || val.trim().isEmpty) return 'Obrigatório';
-                  return null;
-                },
+                controller: _nomeController,
+                decoration: const InputDecoration(labelText: 'Empresa', border: OutlineInputBorder()),
+                validator: (v) => v == null || v.isEmpty ? 'Obrigatório' : null,
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 12),
               TextFormField(
                 controller: _precoAtualController,
-                decoration: const InputDecoration(
-                  labelText: 'Preço Atual (R\$)',
-                  hintText: 'Ex.: 37.20',
-                ),
+                decoration: const InputDecoration(labelText: 'Preço Atual (opcional)', border: OutlineInputBorder()),
                 keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                validator: (val) {
-                  if (val == null || val.trim().isEmpty) return 'Obrigatório';
-                  final n = _toDouble(val);
-                  if (n == null || n <= 0) return 'Deve ser > 0';
-                  return null;
-                },
               ),
-              const SizedBox(height: 24),
-              ElevatedButton(
-                onPressed: _salvar,
-                child: Text(_isEdicao ? 'Atualizar' : 'Salvar'),
-              ),
+              const SizedBox(height: 16),
+              ElevatedButton(onPressed: _salvar, child: const Text('Salvar')),
             ],
           ),
         ),

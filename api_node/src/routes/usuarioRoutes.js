@@ -45,24 +45,10 @@ router.post('/google', async (req, res, next) => {
 router.post('/login', async (req, res, next) => {
   try {
     const { email, senha } = req.body;
-    if (!email || !senha) return res.status(400).json({ error: 'Email e senha obrigatórios' });
-    
-    const usuario = await Usuario.findOne({ where: { email } });
-    if (!usuario) return res.status(401).json({ error: 'Credenciais inválidas' });
-    
-    // Para demo: senha em texto plano. PRODUÇÃO: use bcrypt.compare(senha, usuario.senha)
-    if (senha !== usuario.senha) return res.status(401).json({ error: 'Credenciais inválidas' });
-    
-    const token = jwt.sign(
-      { id: usuario.id, email: usuario.email },
-      process.env.JWT_SECRET || 'secret_dev',
-      { expiresIn: '7d' }
-    );
-    
-    res.json({
-      token,
-      usuario: { id: usuario.id, nome: usuario.nome, email: usuario.email }
-    });
+    const u = await Usuario.findOne({ where: { email } });
+    if (!u || u.senha !== senha) return res.status(401).json({ error: 'Credenciais inválidas' });
+    const token = jwt.sign({ id: u.id, email: u.email }, process.env.JWT_SECRET || 'secret_dev', { expiresIn: '7d' });
+    res.json({ token, usuario: { id: u.id, nome: u.nome, email: u.email } });
   } catch (e) { next(e); }
 });
 

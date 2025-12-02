@@ -2,25 +2,53 @@ class Acao {
   final int id;
   final String codigo;
   final String nomeEmpresa;
-  final double precoAtual;
+  final double? precoAtual; // novo campo opcional
 
   Acao({
     required this.id,
     required this.codigo,
     required this.nomeEmpresa,
-    required this.precoAtual,
+    this.precoAtual,
   });
 
-  static double _toDouble(dynamic v) {
-    if (v == null) return 0.0;
-    if (v is num) return v.toDouble();
-    return double.tryParse(v.toString()) ?? 0.0;
+  factory Acao.fromJson(Map<String, dynamic> j) {
+    double? _toDouble(dynamic v) {
+      if (v == null) return null;
+      if (v is num) return v.toDouble();
+      if (v is String) return double.tryParse(v.replaceAll(',', '.'));
+      return null;
+    }
+
+    int _toInt(dynamic v) {
+      if (v is int) return v;
+      if (v is num) return v.toInt();
+      if (v is String) return int.tryParse(v) ?? 0;
+      return 0;
+    }
+
+    return Acao(
+      id: _toInt(j['id']),
+      codigo: (j['codigo'] ?? j['symbol'] ?? '').toString(),
+      nomeEmpresa: (j['nome_empresa'] ?? j['nomeEmpresa'] ?? '').toString(),
+      precoAtual: _toDouble(j['preco_atual'] ?? j['precoAtual'] ?? j['preco'] ?? j['price']),
+    );
   }
 
-  factory Acao.fromJson(Map<String, dynamic> json) => Acao(
-        id: json['id'] is String ? int.parse(json['id']) : (json['id'] as int),
-        codigo: json['codigo'] as String,
-        nomeEmpresa: json['nome_empresa'] as String,
-        precoAtual: _toDouble(json['preco_atual']),
-      );
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'codigo': codigo,
+      'nome_empresa': nomeEmpresa,
+      if (precoAtual != null) 'preco_atual': precoAtual,
+    };
+  }
+
+  Acao copyWith({double? precoAtual}) {
+    return Acao(
+      id: id,
+      codigo: codigo,
+      nomeEmpresa: nomeEmpresa,
+      precoAtual: precoAtual ?? this.precoAtual,
+    );
+  }
 }
