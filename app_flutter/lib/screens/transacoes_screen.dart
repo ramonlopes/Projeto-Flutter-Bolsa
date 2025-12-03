@@ -637,123 +637,130 @@ class _TransacoesScreenState extends State<TransacoesScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return Scaffold(
-      backgroundColor: Colors.grey.shade50,
       appBar: AppBar(
         title: const Text('Minhas Transações'),
-        elevation: 0,
         actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            tooltip: 'Recarregar',
-            onPressed: _recarregar,
-          ),
+          IconButton(icon: const Icon(Icons.refresh), tooltip: 'Recarregar', onPressed: _recarregar),
         ],
       ),
-      body: RefreshIndicator(
-        onRefresh: () async => _recarregar(),
-        child: FutureBuilder<List<Transacao>>(
-          future: _futuro,
-          builder: (ctx, snap) {
-            if (snap.connectionState == ConnectionState.waiting) {
-              return const Center(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    CircularProgressIndicator(),
-                    SizedBox(height: 16),
-                    Text('Carregando transações...'),
-                  ],
-                ),
-              );
-            }
-            if (snap.hasError) {
-              return Center(
-                child: Padding(
-                  padding: const EdgeInsets.all(24),
+      body: Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: [
+              theme.colorScheme.primary.withOpacity(0.08),
+              theme.colorScheme.secondary.withOpacity(0.08),
+            ],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+        ),
+        child: RefreshIndicator(
+          onRefresh: () async => _recarregar(),
+          child: FutureBuilder<List<Transacao>>(
+            future: _futuro,
+            builder: (ctx, snap) {
+              if (snap.connectionState == ConnectionState.waiting) {
+                return const Center(
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(Icons.error_outline, size: 64, color: Colors.red.shade300),
-                      const SizedBox(height: 16),
-                      Text(
-                        'Erro ao carregar',
-                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.red.shade700),
-                      ),
-                      const SizedBox(height: 8),
-                      Text('${snap.error}', textAlign: TextAlign.center, style: TextStyle(color: Colors.grey.shade600)),
-                      const SizedBox(height: 16),
-                      ElevatedButton.icon(
-                        onPressed: _recarregar,
-                        icon: const Icon(Icons.refresh),
-                        label: const Text('Tentar novamente'),
-                      ),
+                      CircularProgressIndicator(),
+                      SizedBox(height: 16),
+                      Text('Carregando transações...'),
                     ],
                   ),
-                ),
-              );
-            }
-            final todasTransacoes = snap.data ?? [];
-            if (todasTransacoes.isEmpty) {
-              return Center(
-                child: Padding(
-                  padding: const EdgeInsets.all(32),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(Icons.inbox, size: 80, color: Colors.grey.shade300),
-                      const SizedBox(height: 16),
-                      Text(
-                        'Nenhuma transação ainda',
-                        style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.grey.shade700),
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        'Toque no botão + para adicionar sua primeira transação',
-                        style: TextStyle(color: Colors.grey.shade600),
-                        textAlign: TextAlign.center,
-                      ),
-                    ],
-                  ),
-                ),
-              );
-            }
-            
-            final listaFiltrada = _aplicarFiltros(todasTransacoes);
-            final stats = _calcularEstatisticas(todasTransacoes);
-
-            return Column(
-              children: [
-                _estatisticasCard(stats),
-                _filtrosBar(),
-                Expanded(
-                  child: listaFiltrada.isEmpty
-                      ? Center(
-                          child: Padding(
-                            padding: const EdgeInsets.all(24),
-                            child: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(Icons.filter_alt_off, size: 64, color: Colors.grey.shade400),
-                                const SizedBox(height: 12),
-                                Text(
-                                  'Nenhuma transação com estes filtros',
-                                  style: TextStyle(color: Colors.grey.shade600),
-                                ),
-                              ],
-                            ),
-                          ),
-                        )
-                      : ListView.builder(
-                          physics: const AlwaysScrollableScrollPhysics(),
-                          padding: const EdgeInsets.only(bottom: 80, top: 8),
-                          itemCount: listaFiltrada.length,
-                          itemBuilder: (_, i) => _card(listaFiltrada[i]),
+                );
+              }
+              if (snap.hasError) {
+                return Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(24),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.error_outline, size: 64, color: Colors.red.shade300),
+                        const SizedBox(height: 16),
+                        Text(
+                          'Erro ao carregar',
+                          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.red.shade700),
                         ),
-                ),
-              ],
-            );
-          },
+                        const SizedBox(height: 8),
+                        Text('${snap.error}', textAlign: TextAlign.center, style: TextStyle(color: Colors.grey.shade600)),
+                        const SizedBox(height: 16),
+                        ElevatedButton.icon(
+                          onPressed: _recarregar,
+                          icon: const Icon(Icons.refresh),
+                          label: const Text('Tentar novamente'),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              }
+              final todasTransacoes = snap.data ?? [];
+              if (todasTransacoes.isEmpty) {
+                return Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(32),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.inbox, size: 80, color: Colors.grey.shade300),
+                        const SizedBox(height: 16),
+                        Text(
+                          'Nenhuma transação ainda',
+                          style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.grey.shade700),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          'Toque no botão + para adicionar sua primeira transação',
+                          style: TextStyle(color: Colors.grey.shade600),
+                          textAlign: TextAlign.center,
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              }
+              
+              final listaFiltrada = _aplicarFiltros(todasTransacoes);
+              final stats = _calcularEstatisticas(todasTransacoes);
+
+              return Column(
+                children: [
+                  _estatisticasCard(stats),
+                  _filtrosBar(),
+                  Expanded(
+                    child: listaFiltrada.isEmpty
+                        ? Center(
+                            child: Padding(
+                              padding: const EdgeInsets.all(24),
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(Icons.filter_alt_off, size: 64, color: Colors.grey.shade400),
+                                  const SizedBox(height: 12),
+                                  Text(
+                                    'Nenhuma transação com estes filtros',
+                                    style: TextStyle(color: Colors.grey.shade600),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          )
+                        : ListView.builder(
+                            physics: const AlwaysScrollableScrollPhysics(),
+                            padding: const EdgeInsets.only(bottom: 80, top: 8),
+                            itemCount: listaFiltrada.length,
+                            itemBuilder: (_, i) => _card(listaFiltrada[i]),
+                          ),
+                  ),
+                ],
+              );
+            },
+          ),
         ),
       ),
       floatingActionButton: FloatingActionButton.extended(
@@ -766,7 +773,6 @@ class _TransacoesScreenState extends State<TransacoesScreen> {
         },
         icon: const Icon(Icons.add),
         label: const Text('Nova Transação'),
-        elevation: 4,
       ),
     );
   }

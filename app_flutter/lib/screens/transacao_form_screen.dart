@@ -184,6 +184,7 @@ class _TransacaoFormScreenState extends State<TransacaoFormScreen> with SingleTi
   double? _toDouble(String s) => s.trim().isEmpty ? null : double.tryParse(s.replaceAll(',', '.'));
 
   Widget _buildCard({required String title, required IconData icon, required List<Widget> children}) {
+    final theme = Theme.of(context);
     return Card(
       elevation: 2,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
@@ -194,7 +195,8 @@ class _TransacaoFormScreenState extends State<TransacaoFormScreen> with SingleTi
           children: [
             Row(
               children: [
-                Icon(icon, color: Theme.of(context).primaryColor),
+                // Garante cor visível do ícone do título do card
+                Icon(icon, color: theme.colorScheme.primary),
                 const SizedBox(width: 8),
                 Text(title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
               ],
@@ -224,11 +226,17 @@ class _TransacaoFormScreenState extends State<TransacaoFormScreen> with SingleTi
       );
     }
 
+    final theme = Theme.of(context);
+
     return Scaffold(
       appBar: AppBar(
         title: Text(_isEdicao ? 'Editar Transação' : 'Nova Transação'),
         bottom: TabBar(
           controller: _tabController,
+          // Cores explícitas para manter ícones/labels visíveis sobre a AppBar
+          labelColor: Colors.white,
+          unselectedLabelColor: Colors.white70,
+          indicatorColor: Colors.white,
           tabs: const [
             Tab(icon: Icon(Icons.assessment), text: 'Básico'),
             Tab(icon: Icon(Icons.analytics), text: 'Opções'),
@@ -273,7 +281,7 @@ class _TransacaoFormScreenState extends State<TransacaoFormScreen> with SingleTi
           icon: Icons.person,
           children: [
             DropdownButtonFormField<int>(
-              initialValue: _selectedAcaoId,
+              value: _selectedAcaoId,
               decoration: InputDecoration(
                 labelText: 'Ação',
                 border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
@@ -362,7 +370,7 @@ class _TransacaoFormScreenState extends State<TransacaoFormScreen> with SingleTi
           icon: Icons.trending_up,
           children: [
             DropdownButtonFormField<String?>(
-              initialValue: _tipoOperacao,
+              value: _tipoOperacao,
               decoration: InputDecoration(
                 labelText: 'Tipo de Operação',
                 border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
