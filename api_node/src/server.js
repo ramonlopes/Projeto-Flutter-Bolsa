@@ -5,6 +5,7 @@ import dotenv from 'dotenv';
 import sequelize from './config/database.js';
 import './models/index.js'; // carrega relacionamentos ANTES do sync
 import app from './app.js';
+import yahooRoutes from './routes/yahoo.js'; // ADICIONE
 
 dotenv.config();
 
@@ -24,5 +25,7 @@ const start = async () => {
 };
 
 start();
+
+app.use('/yahoo', yahooRoutes); // ADICIONE antes do error handler
 
 export { app }; // permite import em testes, se necessário

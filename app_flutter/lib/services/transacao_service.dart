@@ -41,6 +41,7 @@ class TransacaoService {
       'corretora_operada': t.corretoraOperada,
       'valor_irrf': t.valorIrrrf,
       'data_transacao': t.dataTransacao?.toIso8601String(),
+      'corretora_id': t.corretoraId,
     };
     final r = await client.post(Uri.parse('${ApiConfig.baseUrl}/transacoes'), headers: await _headers(), body: jsonEncode(body));
     if (r.statusCode != 201) throw Exception(r.body);
@@ -68,6 +69,7 @@ class TransacaoService {
       'corretora_operada': t.corretoraOperada,
       'valor_irrf': t.valorIrrrf,
       'data_transacao': t.dataTransacao?.toIso8601String(),
+      'corretora_id': t.corretoraId,
     };
     final r = await client.put(Uri.parse('${ApiConfig.baseUrl}/transacoes/$id'), headers: await _headers(), body: jsonEncode(body));
     if (r.statusCode != 200) throw Exception(r.body);

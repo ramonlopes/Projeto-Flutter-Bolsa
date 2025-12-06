@@ -10,22 +10,28 @@ CREATE TABLE IF NOT EXISTS usuarios (
   id SERIAL PRIMARY KEY,
   nome VARCHAR(100) NOT NULL,
   email VARCHAR(100) UNIQUE NOT NULL,
-  senha VARCHAR(100) NOT NULL
+  senha VARCHAR(100) NOT NULL,
+  created_at TIMESTAMP DEFAULT NOW(),
+  updated_at TIMESTAMP DEFAULT NOW()  
 );
 
 -- Tabela de ações
 CREATE TABLE IF NOT EXISTS acoes (
   id SERIAL PRIMARY KEY,
+  usuario_id INT NOT NULL REFERENCES usuarios(id) ON DELETE CASCADE,
   codigo VARCHAR(10) NOT NULL,
   nome_empresa VARCHAR(100) NOT NULL,
-  preco_atual NUMERIC(10,2) NOT NULL
+  preco_atual NUMERIC(10,2) NOT NULL,
+  created_at TIMESTAMP DEFAULT NOW(),
+  updated_at TIMESTAMP DEFAULT NOW()  
 );
 
 -- Tabela de transações
 CREATE TABLE IF NOT EXISTS transacoes (
   id SERIAL PRIMARY KEY,
   usuario_id INT NOT NULL REFERENCES usuarios(id) ON DELETE CASCADE,
-  acao_id INT NOT NULL REFERENCES acoes(id) ON DELETE CASCADE,
+  acao_id INT NOT NULL REFERENCES acoes(id),
+  corretora_id INT REFERENCES corretoras(id),
   tipo VARCHAR(10) NOT NULL CHECK (tipo IN ('compra', 'venda')),
   quantidade INT NOT NULL CHECK (quantidade > 0),
   preco_unitario NUMERIC(10,2) NOT NULL,
@@ -43,5 +49,26 @@ CREATE TABLE IF NOT EXISTS transacoes (
   valor_cobertural NUMERIC(10,2),
   exercido_operacao BOOLEAN,
   corretora_operada VARCHAR(120),
-  valor_irrf NUMERIC(10,2)
+  valor_irrf NUMERIC(10,2),
+  created_at TIMESTAMP DEFAULT NOW(),
+  updated_at TIMESTAMP DEFAULT NOW()  
 );
+
+-- Tabela de corretoras
+CREATE TABLE corretoras (
+  id SERIAL PRIMARY KEY,
+  usuario_id INT NOT NULL REFERENCES usuarios(id) ON DELETE CASCADE,
+  nome VARCHAR(120) NOT NULL,
+  cnpj VARCHAR(18),
+  taxa_corretagem NUMERIC(10,2),
+  created_at TIMESTAMP DEFAULT NOW(),
+  updated_at TIMESTAMP DEFAULT NOW()
+);
+
+-- Índice para performance
+CREATE INDEX idx_transacoes_usuario ON transacoes(usuario_id);
+CREATE INDEX idx_transacoes_acao ON transacoes(acao_id);
+CREATE INDEX idx_acoes_usuario ON acoes(usuario_id);
+CREATE INDEX IF NOT EXISTS idx_corretoras_usuario ON corretoras(usuario_id);
+CREATE INDEX IF NOT EXISTS idx_transacoes_corretora ON transacoes(corretora_id);
+

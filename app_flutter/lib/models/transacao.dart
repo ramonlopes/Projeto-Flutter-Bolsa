@@ -27,6 +27,7 @@ class Transacao {
   // Metadados
   final DateTime? dataTransacao;
   final String? acaoCodigo; // usado em listagens se o backend retornar
+  final int? corretoraId;
 
   Transacao({
     this.id,
@@ -51,24 +52,25 @@ class Transacao {
     this.valorIrrrf,
     this.dataTransacao,
     this.acaoCodigo,
+    this.corretoraId,
   });
 
   factory Transacao.fromJson(Map<String, dynamic> j) {
-    double? _toDouble(dynamic v) {
+    double? toDouble(dynamic v) {
       if (v == null) return null;
       if (v is num) return v.toDouble();
       if (v is String) return double.tryParse(v.replaceAll(',', '.'));
       return null;
     }
 
-    int _toInt(dynamic v) {
+    int toInt(dynamic v) {
       if (v is int) return v;
       if (v is num) return v.toInt();
       if (v is String) return int.tryParse(v) ?? 0;
       return 0;
     }
 
-    DateTime? _toDate(dynamic v) {
+    DateTime? toDate(dynamic v) {
       if (v == null) return null;
       if (v is DateTime) return v;
       if (v is String && v.isNotEmpty) {
@@ -90,27 +92,28 @@ class Transacao {
 
     return Transacao(
       id: j['id'] as int?,
-      usuarioId: _toInt(j['usuario_id'] ?? j['usuarioId']),
-      acaoId: _toInt(j['acao_id'] ?? j['acaoId']),
+      usuarioId: toInt(j['usuario_id'] ?? j['usuarioId']),
+      acaoId: toInt(j['acao_id'] ?? j['acaoId']),
       tipo: (j['tipo'] ?? '').toString(),
-      quantidade: _toInt(j['quantidade']),
-      precoUnitario: _toDouble(j['preco_unitario'] ?? j['precoUnitario']) ?? 0,
+      quantidade: toInt(j['quantidade']),
+      precoUnitario: toDouble(j['preco_unitario'] ?? j['precoUnitario']) ?? 0,
       tipoOperacao: j['tipo_operacao'] ?? j['tipoOperacao'],
       nomeOpcao: j['nome_opcao'] ?? j['nomeOpcao'],
-      valorMercado: _toDouble(j['valor_mercado'] ?? j['valorMercado']),
-      valorStrike: _toDouble(j['valor_strike'] ?? j['valorStrike']),
-      dataExercicio: _toDate(j['data_exercicio'] ?? j['dataExercicio']),
-      porcentagemPremio: _toDouble(j['porcentagem_premio'] ?? j['porcentagemPremio']),
-      valorPremioLiquido: _toDouble(j['valor_premio_liquido'] ?? j['valorPremioLiquido']),
-      percentualRetorno: _toDouble(j['percentual_retorno'] ?? j['percentualRetorno']),
-      percentualRetornoLiquido: _toDouble(j['percentual_retorno_liquido'] ?? j['percentualRetornoLiquido']),
-      situacaoMomento: _toDouble(j['situacao_momento'] ?? j['situacaoMomento']),
-      valorCobertural: _toDouble(j['valor_cobertural'] ?? j['valorCobertural']),
+      valorMercado: toDouble(j['valor_mercado'] ?? j['valorMercado']),
+      valorStrike: toDouble(j['valor_strike'] ?? j['valorStrike']),
+      dataExercicio: toDate(j['data_exercicio'] ?? j['dataExercicio']),
+      porcentagemPremio: toDouble(j['porcentagem_premio'] ?? j['porcentagemPremio']),
+      valorPremioLiquido: toDouble(j['valor_premio_liquido'] ?? j['valorPremioLiquido']),
+      percentualRetorno: toDouble(j['percentual_retorno'] ?? j['percentualRetorno']),
+      percentualRetornoLiquido: toDouble(j['percentual_retorno_liquido'] ?? j['percentualRetornoLiquido']),
+      situacaoMomento: toDouble(j['situacao_momento'] ?? j['situacaoMomento']),
+      valorCobertural: toDouble(j['valor_cobertural'] ?? j['valorCobertural']),
       exercidoOperacao: (j['exercido_operacao'] ?? j['exercidoOperacao']) as bool?,
       corretoraOperada: j['corretora_operada'] ?? j['corretoraOperada'],
-      valorIrrrf: _toDouble(j['valor_irrf'] ?? j['valorIrrrf']),
-      dataTransacao: _toDate(j['data_transacao'] ?? j['dataTransacao']),
+      valorIrrrf: toDouble(j['valor_irrf'] ?? j['valorIrrrf']),
+      dataTransacao: toDate(j['data_transacao'] ?? j['dataTransacao']),
       acaoCodigo: j['acao_codigo'] ?? j['acaoCodigo'],
+      corretoraId: toInt(j['corretora_id'] ?? j['corretoraId']),
     );
   }
 
@@ -138,6 +141,7 @@ class Transacao {
       if (valorIrrrf != null) 'valor_irrf': valorIrrrf,
       if (dataTransacao != null) 'data_transacao': dataTransacao!.toIso8601String(),
       if (acaoCodigo != null) 'acao_codigo': acaoCodigo,
+      if (corretoraId != null) 'corretora_id': corretoraId,
     };
   }
 
@@ -164,6 +168,7 @@ class Transacao {
     double? valorIrrrf,
     DateTime? dataTransacao,
     String? acaoCodigo,
+    int? corretoraId,
   }) {
     return Transacao(
       id: id ?? this.id,
@@ -188,6 +193,7 @@ class Transacao {
       valorIrrrf: valorIrrrf ?? this.valorIrrrf,
       dataTransacao: dataTransacao ?? this.dataTransacao,
       acaoCodigo: acaoCodigo ?? this.acaoCodigo,
+      corretoraId: corretoraId ?? this.corretoraId,
     );
   }
 }

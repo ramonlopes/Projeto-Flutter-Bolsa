@@ -4,7 +4,10 @@ import '../models/transacao.dart';
 import '../services/transacao_service.dart';
 import '../services/auth_service.dart';
 import '../services/acao_service.dart';
-import '../models/acao.dart'; // ADICIONE este import
+import '../services/corretora_service.dart';
+import '../services/yahoo_finance_service.dart';
+import '../models/acao.dart';
+import '../models/corretora.dart';
 
 class TransacaoFormScreen extends StatefulWidget {
   final Transacao? transacao;
@@ -14,15 +17,19 @@ class TransacaoFormScreen extends StatefulWidget {
   State<TransacaoFormScreen> createState() => _TransacaoFormScreenState();
 }
 
-class _TransacaoFormScreenState extends State<TransacaoFormScreen> with SingleTickerProviderStateMixin {
+class _TransacaoFormScreenState extends State<TransacaoFormScreen>
+    with SingleTickerProviderStateMixin {
   final _formKey = GlobalKey<FormState>();
   final _transacaoService = TransacaoService();
   final _acaoService = AcaoService();
   final _auth = AuthService();
+  final _corretoraService = CorretoraService();
+  final _yahooService = YahooFinanceService();
 
   int? _usuarioIdLogado;
 
   List<Acao> _acoes = []; // TIPADO com Acao
+  List<Corretora> _corretoras = []; // NOVO
   final _currency = NumberFormat.currency(locale: 'pt_BR', symbol: 'R\$');
 
   late TabController _tabController;
@@ -30,9 +37,11 @@ class _TransacaoFormScreenState extends State<TransacaoFormScreen> with SingleTi
   // Campos básicos
   int? _selectedUsuarioId;
   int? _selectedAcaoId;
+  int? _selectedCorretoraId; // NOVO
   String _tipo = 'compra';
   final _quantidadeController = TextEditingController();
   final _precoController = TextEditingController();
+  final _valorController = TextEditingController();
 
   // Opções
   String? _tipoOperacao;
@@ -53,6 +62,7 @@ class _TransacaoFormScreenState extends State<TransacaoFormScreen> with SingleTi
   final _valorIrrrfController = TextEditingController();
 
   bool _loading = true;
+  bool _buscandoCotacao = false;
 
   bool get _isEdicao => widget.transacao != null;
 
@@ -60,8 +70,15 @@ class _TransacaoFormScreenState extends State<TransacaoFormScreen> with SingleTi
   void initState() {
     super.initState();
     _tabController = TabController(length: 3, vsync: this);
+
+    // Define valor padrão 85% apenas para nova transação
+    if (!_isEdicao) {
+      _porcentagemPremioController.text = '85.00';
+    }
+
     _carregarUsuarioLogado();
     _carregarAcoes();
+    _carregarCorretoras();
     _preencherEdicao();
   }
 
@@ -72,7 +89,8 @@ class _TransacaoFormScreenState extends State<TransacaoFormScreen> with SingleTi
 
   Future<void> _carregarAcoes() async {
     try {
-      final acoes = await _acaoService.listarAcoes(); // deve retornar List<Acao>
+      final acoes =
+          await _acaoService.listarAcoes(); // deve retornar List<Acao>
       if (!mounted) return;
       setState(() {
         _acoes = acoes;
@@ -84,7 +102,27 @@ class _TransacaoFormScreenState extends State<TransacaoFormScreen> with SingleTi
     } catch (e) {
       if (!mounted) return;
       setState(() => _loading = false);
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Erro ao carregar ações: $e')));
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('Erro ao carregar ações: $e')));
+    }
+  }
+
+  Future<void> _carregarCorretoras() async {
+    // NOVO
+    try {
+      final lista = await _corretoraService.listar();
+      if (!mounted) return;
+      setState(() {
+        _corretoras = lista;
+        if (_selectedCorretoraId == null && lista.isNotEmpty) {
+          _selectedCorretoraId = lista.first.id;
+        }
+      });
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Erro ao carregar corretoras: $e')),
+      );
     }
   }
 
@@ -96,6 +134,8 @@ class _TransacaoFormScreenState extends State<TransacaoFormScreen> with SingleTi
     _tipo = t.tipo;
     _quantidadeController.text = t.quantidade.toString();
     _precoController.text = t.precoUnitario.toString();
+    _valorController.text = (t.quantidade * t.precoUnitario).toString();
+    _selectedCorretoraId = t.corretoraId; // NOVO
     _tipoOperacao = t.tipoOperacao;
     _nomeOpcaoController.text = t.nomeOpcao ?? '';
     _valorMercadoController.text = t.valorMercado?.toString() ?? '';
@@ -104,7 +144,8 @@ class _TransacaoFormScreenState extends State<TransacaoFormScreen> with SingleTi
     _porcentagemPremioController.text = t.porcentagemPremio?.toString() ?? '';
     _valorPremioLiquidoController.text = t.valorPremioLiquido?.toString() ?? '';
     _percentualRetornoController.text = t.percentualRetorno?.toString() ?? '';
-    _percentualRetornoLiquidoController.text = t.percentualRetornoLiquido?.toString() ?? '';
+    _percentualRetornoLiquidoController.text =
+        t.percentualRetornoLiquido?.toString() ?? '';
     _situacaoMomentoController.text = t.situacaoMomento?.toString() ?? '';
     _valorCoberturalController.text = t.valorCobertural?.toString() ?? '';
     _exercidoOperacao = t.exercidoOperacao ?? false;
@@ -117,6 +158,7 @@ class _TransacaoFormScreenState extends State<TransacaoFormScreen> with SingleTi
     _tabController.dispose();
     _quantidadeController.dispose();
     _precoController.dispose();
+    _valorController.dispose(); // REMOVA se não usar mais
     _nomeOpcaoController.dispose();
     _valorMercadoController.dispose();
     _valorStrikeController.dispose();
@@ -128,13 +170,15 @@ class _TransacaoFormScreenState extends State<TransacaoFormScreen> with SingleTi
     _valorCoberturalController.dispose();
     _corretoraOperadaController.dispose();
     _valorIrrrfController.dispose();
+    _yahooService.dispose();
     super.dispose();
   }
 
   Future<void> _salvar() async {
     if (!_formKey.currentState!.validate()) return;
     if (_usuarioIdLogado == null) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Usuário não carregado')));
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('Usuário não carregado')));
       return;
     }
 
@@ -144,35 +188,45 @@ class _TransacaoFormScreenState extends State<TransacaoFormScreen> with SingleTi
     try {
       final transacao = Transacao(
         id: widget.transacao?.id,
-        usuarioId: _usuarioIdLogado!, // backend vai usar o token
+        usuarioId: _usuarioIdLogado!,
         acaoId: _selectedAcaoId!,
+        corretoraId: _selectedCorretoraId,
         tipo: _tipo,
         quantidade: int.parse(_quantidadeController.text),
         precoUnitario: double.parse(_precoController.text.replaceAll(',', '.')),
+        // REMOVA: valor: double.parse(_valorController.text.replaceAll(',', '.')),
         tipoOperacao: _tipoOperacao,
-        nomeOpcao: _nomeOpcaoController.text.isEmpty ? null : _nomeOpcaoController.text,
+        nomeOpcao: _nomeOpcaoController.text.isEmpty
+            ? null
+            : _nomeOpcaoController.text,
         valorMercado: _toDouble(_valorMercadoController.text),
         valorStrike: _toDouble(_valorStrikeController.text),
         dataExercicio: _dataExercicio,
         porcentagemPremio: _toDouble(_porcentagemPremioController.text),
         valorPremioLiquido: _toDouble(_valorPremioLiquidoController.text),
         percentualRetorno: _toDouble(_percentualRetornoController.text),
-        percentualRetornoLiquido: _toDouble(_percentualRetornoLiquidoController.text),
+        percentualRetornoLiquido:
+            _toDouble(_percentualRetornoLiquidoController.text),
         situacaoMomento: _toDouble(_situacaoMomentoController.text),
         valorCobertural: _toDouble(_valorCoberturalController.text),
         exercidoOperacao: _exercidoOperacao,
-        corretoraOperada: _corretoraOperadaController.text.isEmpty ? null : _corretoraOperadaController.text,
+        corretoraOperada: _corretoraOperadaController.text.isEmpty
+            ? null
+            : _corretoraOperadaController.text,
         valorIrrrf: _toDouble(_valorIrrrfController.text),
       );
 
       if (_isEdicao) {
-        await _transacaoService.atualizarTransacao(widget.transacao!.id!, transacao);
+        await _transacaoService.atualizarTransacao(
+            widget.transacao!.id!, transacao);
         if (!mounted) return;
-        messenger.showSnackBar(const SnackBar(content: Text('✓ Transação atualizada')));
+        messenger.showSnackBar(
+            const SnackBar(content: Text('✓ Transação atualizada')));
       } else {
         await _transacaoService.criarTransacao(transacao);
         if (!mounted) return;
-        messenger.showSnackBar(const SnackBar(content: Text('✓ Transação criada')));
+        messenger
+            .showSnackBar(const SnackBar(content: Text('✓ Transação criada')));
       }
       navigator.pop(true);
     } catch (e) {
@@ -181,9 +235,13 @@ class _TransacaoFormScreenState extends State<TransacaoFormScreen> with SingleTi
     }
   }
 
-  double? _toDouble(String s) => s.trim().isEmpty ? null : double.tryParse(s.replaceAll(',', '.'));
+  double? _toDouble(String s) =>
+      s.trim().isEmpty ? null : double.tryParse(s.replaceAll(',', '.'));
 
-  Widget _buildCard({required String title, required IconData icon, required List<Widget> children}) {
+  Widget _buildCard(
+      {required String title,
+      required IconData icon,
+      required List<Widget> children}) {
     final theme = Theme.of(context);
     return Card(
       elevation: 2,
@@ -198,7 +256,9 @@ class _TransacaoFormScreenState extends State<TransacaoFormScreen> with SingleTi
                 // Garante cor visível do ícone do título do card
                 Icon(icon, color: theme.colorScheme.primary),
                 const SizedBox(width: 8),
-                Text(title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                Text(title,
+                    style: const TextStyle(
+                        fontSize: 18, fontWeight: FontWeight.bold)),
               ],
             ),
             const SizedBox(height: 16),
@@ -207,6 +267,78 @@ class _TransacaoFormScreenState extends State<TransacaoFormScreen> with SingleTi
         ),
       ),
     );
+  }
+
+  Future<void> _buscarCotacaoAcao(int acaoId) async {
+    final acao =
+        _acoes.firstWhere((a) => a.id == acaoId, orElse: () => _acoes.first);
+
+    setState(() => _buscandoCotacao = true);
+
+    try {
+      final preco = await _yahooService.obterCotacao(acao.codigo);
+
+      if (!mounted) return;
+
+      if (preco != null) {
+        _valorMercadoController.text = preco.toStringAsFixed(2);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Row(
+              children: [
+                const Icon(Icons.check_circle, color: Colors.white),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                      'Cotação de ${acao.codigo}: ${_currency.format(preco)}'),
+                ),
+              ],
+            ),
+            backgroundColor: Colors.green.shade700,
+            behavior: SnackBarBehavior.floating,
+            duration: const Duration(seconds: 2),
+          ),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Cotação de ${acao.codigo} não disponível'),
+            backgroundColor: Colors.orange.shade700,
+            behavior: SnackBarBehavior.floating,
+            duration: const Duration(seconds: 2),
+          ),
+        );
+      }
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Erro ao buscar cotação: $e'),
+          backgroundColor: Colors.red.shade700,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _buscandoCotacao = false);
+    }
+  }
+
+  void _atualizarCobertura() {
+    final qtd = int.tryParse(_quantidadeController.text) ?? 0;
+    final strike = _toDouble(_valorStrikeController.text) ?? 0.0;
+    final cobertura = qtd * strike;
+    _valorCoberturalController.text = cobertura.toStringAsFixed(2);
+  }
+
+  void _corrigirQuantidade() {
+    final texto = _quantidadeController.text.trim();
+    final valor = int.tryParse(texto);
+    if (valor == null || valor <= 0) return;
+
+    final corrigido = valor * 100;
+    _quantidadeController.text = corrigido.toString();
+    _atualizarCobertura(); // recalcula
+    setState(() {}); // atualiza total exibido
   }
 
   @override
@@ -219,7 +351,8 @@ class _TransacaoFormScreenState extends State<TransacaoFormScreen> with SingleTi
             children: [
               const CircularProgressIndicator(),
               const SizedBox(height: 16),
-              Text('Carregando...', style: TextStyle(color: Colors.grey.shade600)),
+              Text('Carregando...',
+                  style: TextStyle(color: Colors.grey.shade600)),
             ],
           ),
         ),
@@ -264,7 +397,8 @@ class _TransacaoFormScreenState extends State<TransacaoFormScreen> with SingleTi
             label: Text(_isEdicao ? 'Atualizar' : 'Salvar'),
             style: ElevatedButton.styleFrom(
               padding: const EdgeInsets.symmetric(vertical: 16),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12)),
             ),
           ),
         ),
@@ -284,8 +418,19 @@ class _TransacaoFormScreenState extends State<TransacaoFormScreen> with SingleTi
               value: _selectedAcaoId,
               decoration: InputDecoration(
                 labelText: 'Ação',
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                border:
+                    OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                 prefixIcon: const Icon(Icons.show_chart),
+                suffixIcon: _buscandoCotacao
+                    ? const Padding(
+                        padding: EdgeInsets.all(12),
+                        child: SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        ),
+                      )
+                    : null,
               ),
               items: _acoes
                   .map<DropdownMenuItem<int>>(
@@ -295,8 +440,29 @@ class _TransacaoFormScreenState extends State<TransacaoFormScreen> with SingleTi
                     ),
                   )
                   .toList(),
-              onChanged: (val) => setState(() => _selectedAcaoId = val),
+              onChanged: (val) {
+                if (val != null) {
+                  setState(() => _selectedAcaoId = val);
+                  _buscarCotacaoAcao(val); // BUSCA COTAÇÃO AUTOMATICAMENTE
+                }
+              },
               validator: (val) => val == null ? 'Obrigatório' : null,
+            ),
+            const SizedBox(height: 16),
+            DropdownButtonFormField<int>(
+              value: _selectedCorretoraId,
+              decoration: InputDecoration(
+                labelText: 'Corretora',
+                border:
+                    OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                prefixIcon: const Icon(Icons.account_balance),
+              ),
+              items: _corretoras
+                  .map(
+                      (c) => DropdownMenuItem(value: c.id, child: Text(c.nome)))
+                  .toList(),
+              onChanged: (v) => setState(() => _selectedCorretoraId = v),
+              validator: (v) => v == null ? 'Selecione uma corretora' : null,
             ),
           ],
         ),
@@ -307,8 +473,14 @@ class _TransacaoFormScreenState extends State<TransacaoFormScreen> with SingleTi
           children: [
             SegmentedButton<String>(
               segments: const [
-                ButtonSegment(value: 'compra', label: Text('Compra'), icon: Icon(Icons.arrow_downward, color: Colors.green)),
-                ButtonSegment(value: 'venda', label: Text('Venda'), icon: Icon(Icons.arrow_upward, color: Colors.red)),
+                ButtonSegment(
+                    value: 'compra',
+                    label: Text('Compra'),
+                    icon: Icon(Icons.arrow_downward, color: Colors.green)),
+                ButtonSegment(
+                    value: 'venda',
+                    label: Text('Venda'),
+                    icon: Icon(Icons.arrow_upward, color: Colors.red)),
               ],
               selected: {_tipo},
               onSelectionChanged: (Set<String> newSelection) {
@@ -323,14 +495,24 @@ class _TransacaoFormScreenState extends State<TransacaoFormScreen> with SingleTi
                     controller: _quantidadeController,
                     decoration: InputDecoration(
                       labelText: 'Quantidade',
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                      border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12)),
                       prefixIcon: const Icon(Icons.numbers),
+                      helperText: 'Múltiplos de 100',
                     ),
                     keyboardType: TextInputType.number,
+                    onChanged: (_) {
+                      setState(() {});
+                      _atualizarCobertura();
+                    },
+                    onEditingComplete: _corrigirQuantidade,
+                    onTapOutside: (_) => _corrigirQuantidade(),          // ajusta ao perder foco (clique fora)
                     validator: (val) {
                       if (val == null || val.isEmpty) return 'Obrigatório';
                       final n = int.tryParse(val);
-                      if (n == null || n <= 0) return 'Deve ser > 0';
+                      if (n == null) return 'Digite um número válido';
+                      if (n <= 0) return 'Deve ser > 0';
+                      if (n % 100 != 0) return 'Deve ser múltiplo de 100';
                       return null;
                     },
                   ),
@@ -341,10 +523,14 @@ class _TransacaoFormScreenState extends State<TransacaoFormScreen> with SingleTi
                     controller: _precoController,
                     decoration: InputDecoration(
                       labelText: 'Preço (R\$)',
+                      hintText: '0,00',
+                      prefixText: 'R\$ ',
                       border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                       prefixIcon: const Icon(Icons.attach_money),
                     ),
-                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                    keyboardType:
+                        const TextInputType.numberWithOptions(decimal: true),
+                    onChanged: (_) => setState(() {}), // ATUALIZA ao digitar
                     validator: (val) {
                       if (val == null || val.isEmpty) return 'Obrigatório';
                       final n = _toDouble(val);
@@ -355,9 +541,76 @@ class _TransacaoFormScreenState extends State<TransacaoFormScreen> with SingleTi
                 ),
               ],
             ),
+            const SizedBox(height: 16),
+            // NOVO: Widget que exibe o total calculado
+            _buildTotalOperacao(),
           ],
         ),
       ],
+    );
+  }
+
+  // NOVO: Método para calcular e exibir o total
+  Widget _buildTotalOperacao() {
+    final qtd = int.tryParse(_quantidadeController.text) ?? 0;
+    final preco = _toDouble(_precoController.text) ?? 0.0;
+    final total = qtd * preco;
+
+    final theme = Theme.of(context);
+    final isCompra = _tipo == 'compra';
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: isCompra
+            ? Colors.red.withOpacity(0.08)
+            : Colors.green.withOpacity(0.08),
+        border: Border.all(
+          color: isCompra ? Colors.red.shade300 : Colors.green.shade300,
+          width: 2,
+        ),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Valor Total da Operação',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: Colors.grey.shade700,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                _currency.format(total),
+                style: TextStyle(
+                  fontSize: 24,
+                  fontWeight: FontWeight.bold,
+                  color: isCompra ? Colors.red.shade700 : Colors.green.shade700,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                '$qtd ação${qtd != 1 ? 's' : ''} × ${_currency.format(preco)}',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: Colors.grey.shade600,
+                ),
+              ),
+            ],
+          ),
+          Icon(
+            isCompra ? Icons.arrow_downward : Icons.arrow_upward,
+            size: 48,
+            color: isCompra ? Colors.red.shade300 : Colors.green.shade300,
+          ),
+        ],
+      ),
     );
   }
 
@@ -370,10 +623,11 @@ class _TransacaoFormScreenState extends State<TransacaoFormScreen> with SingleTi
           icon: Icons.trending_up,
           children: [
             DropdownButtonFormField<String?>(
-              value: _tipoOperacao,
+              initialValue: _tipoOperacao,
               decoration: InputDecoration(
                 labelText: 'Tipo de Operação',
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                border:
+                    OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                 prefixIcon: const Icon(Icons.swap_calls),
               ),
               items: const [
@@ -389,7 +643,8 @@ class _TransacaoFormScreenState extends State<TransacaoFormScreen> with SingleTi
               decoration: InputDecoration(
                 labelText: 'Nome da Opção',
                 hintText: 'Ex.: PETR4C40',
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                border:
+                    OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                 prefixIcon: const Icon(Icons.label),
               ),
             ),
@@ -401,10 +656,21 @@ class _TransacaoFormScreenState extends State<TransacaoFormScreen> with SingleTi
                     controller: _valorMercadoController,
                     decoration: InputDecoration(
                       labelText: 'Valor Mercado',
+                      hintText: '0,00',
+                      prefixText: 'R\$ ',
                       border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                       prefixIcon: const Icon(Icons.attach_money),
+                      suffixIcon: IconButton(
+                        icon: const Icon(Icons.refresh),
+                        tooltip: 'Atualizar cotação',
+                        onPressed: _selectedAcaoId == null
+                            ? null
+                            : () => _buscarCotacaoAcao(_selectedAcaoId!),
+                      ),
                     ),
-                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                    keyboardType:
+                        const TextInputType.numberWithOptions(decimal: true),
+                    readOnly: _buscandoCotacao,
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -413,10 +679,14 @@ class _TransacaoFormScreenState extends State<TransacaoFormScreen> with SingleTi
                     controller: _valorStrikeController,
                     decoration: InputDecoration(
                       labelText: 'Strike',
+                      hintText: '0,00',
+                      prefixText: 'R\$ ',
                       border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                       prefixIcon: const Icon(Icons.gps_fixed),
                     ),
-                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                    keyboardType:
+                        const TextInputType.numberWithOptions(decimal: true),
+                    onChanged: (_) => _atualizarCobertura(),
                   ),
                 ),
               ],
@@ -442,10 +712,12 @@ class _TransacaoFormScreenState extends State<TransacaoFormScreen> with SingleTi
                     controller: _porcentagemPremioController,
                     decoration: InputDecoration(
                       labelText: 'Prêmio (%)',
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                      border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12)),
                       prefixIcon: const Icon(Icons.percent),
                     ),
-                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                    keyboardType:
+                        const TextInputType.numberWithOptions(decimal: true),
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -454,10 +726,12 @@ class _TransacaoFormScreenState extends State<TransacaoFormScreen> with SingleTi
                     controller: _valorPremioLiquidoController,
                     decoration: InputDecoration(
                       labelText: 'Prêmio Líq. (R\$)',
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                      border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12)),
                       prefixIcon: const Icon(Icons.attach_money),
                     ),
-                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                    keyboardType:
+                        const TextInputType.numberWithOptions(decimal: true),
                   ),
                 ),
               ],
@@ -470,10 +744,12 @@ class _TransacaoFormScreenState extends State<TransacaoFormScreen> with SingleTi
                     controller: _percentualRetornoController,
                     decoration: InputDecoration(
                       labelText: 'Retorno (%)',
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                      border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12)),
                       prefixIcon: const Icon(Icons.trending_up),
                     ),
-                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                    keyboardType:
+                        const TextInputType.numberWithOptions(decimal: true),
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -482,10 +758,12 @@ class _TransacaoFormScreenState extends State<TransacaoFormScreen> with SingleTi
                     controller: _percentualRetornoLiquidoController,
                     decoration: InputDecoration(
                       labelText: 'Retorno Líq. (%)',
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                      border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12)),
                       prefixIcon: const Icon(Icons.show_chart),
                     ),
-                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                    keyboardType:
+                        const TextInputType.numberWithOptions(decimal: true),
                   ),
                 ),
               ],
@@ -510,7 +788,8 @@ class _TransacaoFormScreenState extends State<TransacaoFormScreen> with SingleTi
               child: InputDecorator(
                 decoration: InputDecoration(
                   labelText: 'Data de Exercício',
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                  border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12)),
                   prefixIcon: const Icon(Icons.calendar_today),
                 ),
                 child: Text(
@@ -525,18 +804,19 @@ class _TransacaoFormScreenState extends State<TransacaoFormScreen> with SingleTi
               title: const Text('Operação Exercida'),
               value: _exercidoOperacao,
               onChanged: (v) => setState(() => _exercidoOperacao = v),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12)),
             ),
-            const SizedBox(height: 16),
-            TextFormField(
-              controller: _corretoraOperadaController,
-              decoration: InputDecoration(
-                labelText: 'Corretora',
-                hintText: 'Ex.: Clear, Rico',
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                prefixIcon: const Icon(Icons.business),
-              ),
-            ),
+            // const SizedBox(height: 16),
+            // TextFormField(
+            //   controller: _corretoraOperadaController,
+            //   decoration: InputDecoration(
+            //     labelText: 'Corretora',
+            //     hintText: 'Ex.: Clear, Rico',
+            //     border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+            //     prefixIcon: const Icon(Icons.business),
+            //   ),
+            // ),
             const SizedBox(height: 16),
             Row(
               children: [
@@ -545,10 +825,13 @@ class _TransacaoFormScreenState extends State<TransacaoFormScreen> with SingleTi
                     controller: _valorIrrrfController,
                     decoration: InputDecoration(
                       labelText: 'IRRF (R\$)',
+                      hintText: '0,00',
+                      prefixText: 'R\$ ',
                       border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                       prefixIcon: const Icon(Icons.account_balance),
                     ),
-                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                    keyboardType:
+                        const TextInputType.numberWithOptions(decimal: true),
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -557,10 +840,13 @@ class _TransacaoFormScreenState extends State<TransacaoFormScreen> with SingleTi
                     controller: _valorCoberturalController,
                     decoration: InputDecoration(
                       labelText: 'Cobertural (R\$)',
+                      hintText: '0,00',
+                      prefixText: 'R\$ ',
                       border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                       prefixIcon: const Icon(Icons.shield),
                     ),
-                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                    keyboardType:
+                        const TextInputType.numberWithOptions(decimal: true),
                   ),
                 ),
               ],
@@ -570,10 +856,14 @@ class _TransacaoFormScreenState extends State<TransacaoFormScreen> with SingleTi
               controller: _situacaoMomentoController,
               decoration: InputDecoration(
                 labelText: 'Situação Momento (R\$)',
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                hintText: '0,00',
+                prefixText: 'R\$ ',
+                border:
+                    OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                 prefixIcon: const Icon(Icons.info_outline),
               ),
-              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              keyboardType:
+                  const TextInputType.numberWithOptions(decimal: true),
             ),
           ],
         ),

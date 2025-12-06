@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../models/acao.dart';
 import '../services/acao_service.dart';
+import '../services/yahoo_finance_service.dart';
 import 'acao_form_screen.dart';
 
 class AcoesScreen extends StatefulWidget {
@@ -13,17 +14,44 @@ class AcoesScreen extends StatefulWidget {
 
 class _AcoesScreenState extends State<AcoesScreen> {
   final _service = AcaoService();
+  final _yahooService = YahooFinanceService();
   late Future<List<Acao>> _futuro;
   final _currency = NumberFormat.currency(locale: 'pt_BR', symbol: 'R\$');
+  
+  // Cache de cotações
+  final Map<String, double> _cotacoes = {};
+  bool _carregandoCotacoes = false;
 
   @override
   void initState() {
     super.initState();
     _futuro = _service.listarAcoes();
+    _carregarCotacoes();
   }
 
   void _recarregar() {
-    setState(() => _futuro = _service.listarAcoes());
+    setState(() {
+      _futuro = _service.listarAcoes();
+      _cotacoes.clear();
+    });
+    _carregarCotacoes();
+  }
+
+  Future<void> _carregarCotacoes() async {
+    setState(() => _carregandoCotacoes = true);
+    try {
+      final acoes = await _futuro;
+      final simbolos = acoes.map((a) => a.codigo).toList();
+      final precos = await _yahooService.obterCotacoes(simbolos);
+      if (mounted) {
+        setState(() {
+        _cotacoes.addAll(precos);
+        _carregandoCotacoes = false;
+      });
+      }
+    } catch (e) {
+      if (mounted) setState(() => _carregandoCotacoes = false);
+    }
   }
 
   Future<void> _excluir(Acao a) async {
@@ -64,6 +92,11 @@ class _AcoesScreenState extends State<AcoesScreen> {
 
   Widget _cardAcao(Acao a) {
     final theme = Theme.of(context);
+    final codigoYahoo = a.codigo.toUpperCase().contains('.') 
+        ? a.codigo.toUpperCase() 
+        : '${a.codigo.toUpperCase()}.SA';
+    final cotacao = _cotacoes[codigoYahoo];
+    
     return Card(
       elevation: 6,
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
@@ -97,16 +130,56 @@ class _AcoesScreenState extends State<AcoesScreen> {
                   children: [
                     Text(a.codigo, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
                     const SizedBox(height: 4),
-                    Text(a.nomeEmpresa, style: TextStyle(color: Colors.grey.shade700)),
+                    Text(a.nomeEmpresa, style: TextStyle(color: Colors.grey.shade700, fontSize: 13)),
                     const SizedBox(height: 8),
                     Row(
                       children: [
-                        Icon(Icons.attach_money, size: 16, color: Colors.green.shade700),
-                        const SizedBox(width: 4),
-                        Text(
-                          a.precoAtual != null ? _currency.format(a.precoAtual) : '-',
-                          style: const TextStyle(fontWeight: FontWeight.w600),
+                        Icon(
+                          _carregandoCotacoes ? Icons.update : Icons.attach_money,
+                          size: 16,
+                          color: Colors.green.shade700,
                         ),
+                        const SizedBox(width: 4),
+                        if (_carregandoCotacoes)
+                          SizedBox(
+                            width: 12,
+                            height: 12,
+                            child: CircularProgressIndicator(strokeWidth: 2, color: Colors.grey.shade600),
+                          )
+                        else if (cotacao != null)
+                          Text(
+                            _currency.format(cotacao),
+                            style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15),
+                          )
+                        else
+                          Text(
+                            a.precoAtual != null ? _currency.format(a.precoAtual) : 'N/D',
+                            style: TextStyle(
+                              fontWeight: FontWeight.w600,
+                              fontSize: 15,
+                              color: Colors.grey.shade600,
+                            ),
+                          ),
+                        if (cotacao != null) ...[
+                          const SizedBox(width: 8),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: Colors.green.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: Row(
+                              children: const [
+                                Icon(Icons.wifi, size: 10, color: Colors.green),
+                                SizedBox(width: 2),
+                                Text(
+                                  'Tempo real',
+                                  style: TextStyle(fontSize: 9, color: Colors.green, fontWeight: FontWeight.bold),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
                       ],
                     ),
                   ],
@@ -122,9 +195,26 @@ class _AcoesScreenState extends State<AcoesScreen> {
                     if (ok == true) _recarregar();
                   } else if (v == 'delete') {
                     _excluir(a);
+                  } else if (v == 'refresh') {
+                    // Atualiza apenas esta cotação
+                    final preco = await _yahooService.obterCotacao(codigoYahoo);
+                    if (preco != null && mounted) {
+                      setState(() => _cotacoes[codigoYahoo] = preco);
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text('Cotação atualizada: ${_currency.format(preco)}'),
+                          behavior: SnackBarBehavior.floating,
+                          duration: const Duration(seconds: 2),
+                        ),
+                      );
+                    }
                   }
                 },
                 itemBuilder: (ctx) => const [
+                  PopupMenuItem(
+                    value: 'refresh',
+                    child: Row(children: [Icon(Icons.refresh, size: 18), SizedBox(width: 8), Text('Atualizar cotação')]),
+                  ),
                   PopupMenuItem(value: 'edit', child: Row(children: [Icon(Icons.edit, size: 18), SizedBox(width: 8), Text('Editar')])),
                   PopupMenuItem(
                     value: 'delete',
@@ -154,10 +244,18 @@ class _AcoesScreenState extends State<AcoesScreen> {
         boxShadow: [BoxShadow(color: theme.colorScheme.primary.withOpacity(0.3), blurRadius: 8, offset: const Offset(0, 4))],
       ),
       child: Row(
-        children: const [
-          Icon(Icons.business, color: Colors.white),
-          SizedBox(width: 10),
-          Text('Minhas Ações', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+        children: [
+          const Icon(Icons.business, color: Colors.white),
+          const SizedBox(width: 10),
+          const Expanded(
+            child: Text('Minhas Ações', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+          ),
+          if (_carregandoCotacoes)
+            const SizedBox(
+              width: 16,
+              height: 16,
+              child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+            ),
         ],
       ),
     );
@@ -237,7 +335,11 @@ class _AcoesScreenState extends State<AcoesScreen> {
       appBar: AppBar(
         title: const Text('Ações'),
         actions: [
-          IconButton(icon: const Icon(Icons.refresh), onPressed: _recarregar),
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            tooltip: 'Recarregar cotações',
+            onPressed: _recarregar,
+          ),
         ],
       ),
       floatingActionButton: FloatingActionButton.extended(

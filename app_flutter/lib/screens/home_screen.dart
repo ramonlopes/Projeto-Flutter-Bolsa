@@ -3,6 +3,7 @@ import '../services/auth_service.dart';
 import 'login_screen.dart';
 import 'acoes_screen.dart';
 import 'transacoes_screen.dart';
+import 'corretoras_screen.dart'; // ADICIONE
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -151,6 +152,16 @@ class _HomeScreenState extends State<HomeScreen> {
               onTap: () => Navigator.push(
                 context,
                 MaterialPageRoute(builder: (_) => const TransacoesScreen()),
+              ),
+            ),
+            _quickCard(
+              icon: Icons.account_balance,
+              title: 'Corretoras',
+              subtitle: 'Gerencie suas corretoras',
+              color: Colors.teal,
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const CorretorasScreen()),
               ),
             ),
             const SizedBox(height: 80),
