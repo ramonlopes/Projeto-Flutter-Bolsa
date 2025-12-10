@@ -1,43 +1,54 @@
 class Acao {
-  final int? id;
+  final int id;
   final String codigo;
   final String nomeEmpresa;
-  final double precoAtual;
+  final double? precoAtual;
 
   Acao({
-    this.id,
+    required this.id,
     required this.codigo,
     required this.nomeEmpresa,
-    required this.precoAtual,
+    this.precoAtual,
   });
 
-  factory Acao.fromJson(Map<String, dynamic> json) {
-    final raw = json['preco_atual'];
-    double preco;
-    if (raw == null) {
-      preco = 0.0;
-    } else if (raw is num) {
-      preco = raw.toDouble();
-    } else if (raw is String) {
-      preco = double.tryParse(raw.replaceAll(',', '.')) ?? 0.0;
-    } else {
-      preco = 0.0;
+  factory Acao.fromJson(Map<String, dynamic> j) {
+    double? toDouble(dynamic v) {
+      if (v == null) return null;
+      if (v is num) return v.toDouble();
+      if (v is String) return double.tryParse(v.replaceAll(',', '.'));
+      return null;
+    }
+
+    int toInt(dynamic v) {
+      if (v is int) return v;
+      if (v is num) return v.toInt();
+      if (v is String) return int.tryParse(v) ?? 0;
+      return 0;
     }
 
     return Acao(
-      id: json['id'] as int?,
-      codigo: json['codigo'] ?? '',
-      nomeEmpresa: json['nome_empresa'] ?? '',
-      precoAtual: preco,
+      id: toInt(j['id']),
+      codigo: (j['codigo'] ?? j['symbol'] ?? '').toString(),
+      nomeEmpresa: (j['nome_empresa'] ?? j['nomeEmpresa'] ?? '').toString(),
+      precoAtual: toDouble(j['preco_atual'] ?? j['precoAtual'] ?? j['preco'] ?? j['price']),
     );
   }
 
   Map<String, dynamic> toJson() {
     return {
-      if (id != null) 'id': id,
+      'id': id,
       'codigo': codigo,
       'nome_empresa': nomeEmpresa,
-      'preco_atual': precoAtual,
+      if (precoAtual != null) 'preco_atual': precoAtual,
     };
+  }
+
+  Acao copyWith({String? codigo, String? nomeEmpresa, double? precoAtual}) {
+    return Acao(
+      id: id,
+      codigo: codigo ?? this.codigo,
+      nomeEmpresa: nomeEmpresa ?? this.nomeEmpresa,
+      precoAtual: precoAtual ?? this.precoAtual,
+    );
   }
 }

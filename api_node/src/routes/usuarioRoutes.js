@@ -1,6 +1,8 @@
 import { Router } from 'express';
 import { verifyGoogleIdToken } from '../utils/googleVerify.js';
 import Usuario from '../models/Usuario.js';
+import bcrypt from 'bcrypt';
+import jwt from 'jsonwebtoken';
 
 const router = Router();
 
@@ -13,21 +15,6 @@ router.get('/', async (req, res, next) => {
     console.log('GET /usuarios count=', lista.length);
     res.status(200).json(lista);
   } catch (e) { next(e); }
-});
-
-router.post('/', async (req, res, next) => {
-  try {
-    const { nome, email, senha } = req.body;
-    if (!nome || !email || !senha) {
-      return res.status(400).json({ error: 'Campos obrigatórios' });
-    }
-    const criado = await Usuario.create({ nome, email, senha });
-    console.log('POST /usuarios criado id=', criado.id);
-    res.status(201).json({ id: criado.id, nome: criado.nome, email: criado.email });
-  } catch (e) {
-    console.error('Erro POST /usuarios', e);
-    next(e);
-  }
 });
 
 // Login com Google: recebe { idToken }
@@ -52,6 +39,29 @@ router.post('/google', async (req, res, next) => {
   } catch (e) {
     next(e);
   }
+});
+
+// Login
+router.post('/login', async (req, res, next) => {
+  try {
+    const { email, senha } = req.body;
+    const u = await Usuario.findOne({ where: { email } });
+    if (!u || u.senha !== senha) return res.status(401).json({ error: 'Credenciais inválidas' });
+    const token = jwt.sign({ id: u.id, email: u.email }, process.env.JWT_SECRET || 'secret_dev', { expiresIn: '7d' });
+    res.json({ token, usuario: { id: u.id, nome: u.nome, email: u.email } });
+  } catch (e) { next(e); }
+});
+
+// Criar usuário (registro)
+router.post('/', async (req, res, next) => {
+  try {
+    const { nome, email, senha } = req.body;
+    if (!nome || !email || !senha) return res.status(400).json({ error: 'Campos obrigatórios' });
+    
+    // PRODUÇÃO: const senhaHash = await bcrypt.hash(senha, 10);
+    const criado = await Usuario.create({ nome, email, senha });
+    res.status(201).json({ id: criado.id, nome: criado.nome, email: criado.email });
+  } catch (e) { next(e); }
 });
 
 export default router;
