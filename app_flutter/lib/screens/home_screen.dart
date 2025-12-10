@@ -3,7 +3,8 @@ import '../services/auth_service.dart';
 import 'login_screen.dart';
 import 'acoes_screen.dart';
 import 'transacoes_screen.dart';
-import 'corretoras_screen.dart'; // ADICIONE
+import 'transacao_form_screen.dart'; // ADICIONE
+import 'corretoras_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -171,7 +172,7 @@ class _HomeScreenState extends State<HomeScreen> {
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => Navigator.push(
           context,
-          MaterialPageRoute(builder: (_) => const TransacoesScreen()),
+          MaterialPageRoute(builder: (_) => const TransacaoFormScreen()),
         ),
         icon: const Icon(Icons.add),
         label: const Text('Nova Transação'),

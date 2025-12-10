@@ -5,6 +5,7 @@ class Transacao {
   final String tipo; // compra | venda
   final int quantidade;
   final double precoUnitario;
+  final double? valorOperacao;
 
   // Derivativos (Opções)
   final String? tipoOperacao; // PUT | CALL
@@ -22,7 +23,7 @@ class Transacao {
   final double? valorCobertural;
   final bool? exercidoOperacao;
   final String? corretoraOperada;
-  final double? valorIrrrf;
+  final double? valorIRRF;  
 
   // Metadados
   final DateTime? dataTransacao;
@@ -36,6 +37,7 @@ class Transacao {
     required this.tipo,
     required this.quantidade,
     required this.precoUnitario,
+    required this.valorOperacao,
     this.tipoOperacao,
     this.nomeOpcao,
     this.valorMercado,
@@ -49,7 +51,7 @@ class Transacao {
     this.valorCobertural,
     this.exercidoOperacao,
     this.corretoraOperada,
-    this.valorIrrrf,
+    this.valorIRRF,
     this.dataTransacao,
     this.acaoCodigo,
     this.corretoraId,
@@ -110,7 +112,8 @@ class Transacao {
       valorCobertural: toDouble(j['valor_cobertural'] ?? j['valorCobertural']),
       exercidoOperacao: (j['exercido_operacao'] ?? j['exercidoOperacao']) as bool?,
       corretoraOperada: j['corretora_operada'] ?? j['corretoraOperada'],
-      valorIrrrf: toDouble(j['valor_irrf'] ?? j['valorIrrrf']),
+      valorIRRF: toDouble(j['valor_irrf'] ?? j['valorIRRF']),
+      valorOperacao: toDouble(j['valor_operacao'] ?? j['valorOperacao']),
       dataTransacao: toDate(j['data_transacao'] ?? j['dataTransacao']),
       acaoCodigo: j['acao_codigo'] ?? j['acaoCodigo'],
       corretoraId: toInt(j['corretora_id'] ?? j['corretoraId']),
@@ -138,7 +141,7 @@ class Transacao {
       if (valorCobertural != null) 'valor_cobertural': valorCobertural,
       if (exercidoOperacao != null) 'exercido_operacao': exercidoOperacao,
       if (corretoraOperada != null) 'corretora_operada': corretoraOperada,
-      if (valorIrrrf != null) 'valor_irrf': valorIrrrf,
+      if (valorIRRF != null) 'valor_irrf': valorIRRF,
       if (dataTransacao != null) 'data_transacao': dataTransacao!.toIso8601String(),
       if (acaoCodigo != null) 'acao_codigo': acaoCodigo,
       if (corretoraId != null) 'corretora_id': corretoraId,
@@ -165,7 +168,8 @@ class Transacao {
     double? valorCobertural,
     bool? exercidoOperacao,
     String? corretoraOperada,
-    double? valorIrrrf,
+    double? valorIRRF,
+    double? valorOperacao,
     DateTime? dataTransacao,
     String? acaoCodigo,
     int? corretoraId,
@@ -190,7 +194,8 @@ class Transacao {
       valorCobertural: valorCobertural ?? this.valorCobertural,
       exercidoOperacao: exercidoOperacao ?? this.exercidoOperacao,
       corretoraOperada: corretoraOperada ?? this.corretoraOperada,
-      valorIrrrf: valorIrrrf ?? this.valorIrrrf,
+      valorIRRF: valorIRRF ?? this.valorIRRF,
+      valorOperacao: valorOperacao ?? this.valorOperacao,
       dataTransacao: dataTransacao ?? this.dataTransacao,
       acaoCodigo: acaoCodigo ?? this.acaoCodigo,
       corretoraId: corretoraId ?? this.corretoraId,

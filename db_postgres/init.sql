@@ -35,6 +35,7 @@ CREATE TABLE IF NOT EXISTS transacoes (
   tipo VARCHAR(10) NOT NULL CHECK (tipo IN ('compra', 'venda')),
   quantidade INT NOT NULL CHECK (quantidade > 0),
   preco_unitario NUMERIC(10,2) NOT NULL,
+  valor_operacao NUMERIC(10,2) NOT NULL,
   tipo_operacao VARCHAR(10) CHECK (tipo_operacao IN ('PUT', 'CALL')),
   nome_opcao VARCHAR(100),
   valor_mercado NUMERIC(10,2),

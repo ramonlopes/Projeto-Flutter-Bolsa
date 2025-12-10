@@ -18,6 +18,10 @@ const Transacao = sequelize.define('Transacao', {
     type: DataTypes.DECIMAL(10, 2),
     allowNull: false,
   },
+  valor_operacao: {
+    type: DataTypes.DECIMAL(10, 2),
+    allowNull: false,
+  },  
   tipo_operacao: {
     type: DataTypes.ENUM('PUT', 'CALL'),
     allowNull: true,

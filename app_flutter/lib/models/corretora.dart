@@ -7,12 +7,12 @@ class Corretora {
   Corretora({required this.id, required this.nome, this.cnpj, this.taxaCorretagem});
 
   factory Corretora.fromJson(Map<String,dynamic> j) {
-    double? _d(v)=> v==null?null:(v is num? v.toDouble(): double.tryParse(v.toString()));
+    double? d(v)=> v==null?null:(v is num? v.toDouble(): double.tryParse(v.toString()));
     return Corretora(
       id: j['id'] as int,
       nome: j['nome'] as String,
       cnpj: j['cnpj'] as String?,
-      taxaCorretagem: _d(j['taxa_corretagem'] ?? j['taxaCorretagem']),
+      taxaCorretagem: d(j['taxa_corretagem'] ?? j['taxaCorretagem']),
     );
   }
 

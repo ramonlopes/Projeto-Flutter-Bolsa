@@ -20,8 +20,8 @@ class _TransacoesScreenState extends State<TransacoesScreen> {
   final _currency = NumberFormat.currency(locale: 'pt_BR', symbol: 'R\$');
   final _date = DateFormat('dd/MM/yyyy');
   
-  String _filtroTipo = 'todas'; // 'todas', 'compra', 'venda'
-  String _ordenacao = 'data_desc'; // 'data_desc', 'data_asc', 'valor_desc', 'valor_asc'
+  String _filtroTipo = 'todas';
+  String _ordenacao = 'data_desc';
 
   @override
   void initState() {
@@ -29,8 +29,10 @@ class _TransacoesScreenState extends State<TransacoesScreen> {
     _futuro = service.listarTransacoes();
   }
 
-  void _recarregar() {
-    setState(() => _futuro = service.listarTransacoes());
+  Future<void> _recarregar() async {
+    setState(() {
+      _futuro = service.listarTransacoes();
+    });
   }
 
   List<Transacao> _aplicarFiltros(List<Transacao> lista) {
@@ -139,7 +141,7 @@ class _TransacoesScreenState extends State<TransacoesScreen> {
           behavior: SnackBarBehavior.floating,
         ),
       );
-      _recarregar();
+      await _recarregar(); // ADICIONE await
     } catch (e) {
       if (!mounted) return;
       messenger.showSnackBar(
@@ -642,7 +644,11 @@ class _TransacoesScreenState extends State<TransacoesScreen> {
       appBar: AppBar(
         title: const Text('Minhas Transações'),
         actions: [
-          IconButton(icon: const Icon(Icons.refresh), tooltip: 'Recarregar', onPressed: _recarregar),
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            tooltip: 'Recarregar',
+            onPressed: _recarregar,
+          ),
         ],
       ),
       body: Container(
@@ -657,7 +663,7 @@ class _TransacoesScreenState extends State<TransacoesScreen> {
           ),
         ),
         child: RefreshIndicator(
-          onRefresh: () async => _recarregar(),
+          onRefresh: _recarregar, // JÁ ESTÁ CORRETO (async)
           child: FutureBuilder<List<Transacao>>(
             future: _futuro,
             builder: (ctx, snap) {
@@ -769,7 +775,7 @@ class _TransacoesScreenState extends State<TransacoesScreen> {
             context,
             MaterialPageRoute(builder: (_) => const TransacaoFormScreen()),
           );
-          if (ok == true) _recarregar();
+          if (ok == true) await _recarregar(); // ADICIONE await
         },
         icon: const Icon(Icons.add),
         label: const Text('Nova Transação'),

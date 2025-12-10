@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
+import 'package:flutter_masked_text2/flutter_masked_text2.dart';
 import '../models/transacao.dart';
 import '../services/transacao_service.dart';
 import '../services/auth_service.dart';
@@ -28,8 +30,8 @@ class _TransacaoFormScreenState extends State<TransacaoFormScreen>
 
   int? _usuarioIdLogado;
 
-  List<Acao> _acoes = []; // TIPADO com Acao
-  List<Corretora> _corretoras = []; // NOVO
+  List<Acao> _acoes = [];
+  List<Corretora> _corretoras = [];
   final _currency = NumberFormat.currency(locale: 'pt_BR', symbol: 'R\$');
 
   late TabController _tabController;
@@ -37,29 +39,63 @@ class _TransacaoFormScreenState extends State<TransacaoFormScreen>
   // Campos básicos
   int? _selectedUsuarioId;
   int? _selectedAcaoId;
-  int? _selectedCorretoraId; // NOVO
+  int? _selectedCorretoraId;
   String _tipo = 'compra';
   final _quantidadeController = TextEditingController();
-  final _precoController = TextEditingController();
-  final _valorController = TextEditingController();
+  final _precoController = MoneyMaskedTextController(
+    decimalSeparator: ',',
+    thousandSeparator: '.',
+    leftSymbol: 'R\$ ',
+    initialValue: 0.0, // ADICIONE
+  );
+  final _valorOperacaoController = MoneyMaskedTextController(
+    decimalSeparator: ',',
+    thousandSeparator: '.',
+    leftSymbol: 'R\$ ',
+  );
 
   // Opções
   String? _tipoOperacao;
   final _nomeOpcaoController = TextEditingController();
-  final _valorMercadoController = TextEditingController();
-  final _valorStrikeController = TextEditingController();
+  final _valorMercadoController = MoneyMaskedTextController(
+    decimalSeparator: ',',
+    thousandSeparator: '.',
+    leftSymbol: 'R\$ ',
+    initialValue: 0.0, // ADICIONE
+  );
+  final _valorStrikeController = MoneyMaskedTextController(
+    decimalSeparator: ',',
+    thousandSeparator: '.',
+    leftSymbol: 'R\$ ',
+  );
 
   // Financeiro
   DateTime? _dataExercicio;
   final _porcentagemPremioController = TextEditingController();
-  final _valorPremioLiquidoController = TextEditingController();
+  final _valorPremioLiquidoController = MoneyMaskedTextController(
+    decimalSeparator: ',',
+    thousandSeparator: '.',
+    leftSymbol: 'R\$ ',
+  );
   final _percentualRetornoController = TextEditingController();
   final _percentualRetornoLiquidoController = TextEditingController();
-  final _situacaoMomentoController = TextEditingController();
-  final _valorCoberturalController = TextEditingController();
+  final _situacaoMomentoController = MoneyMaskedTextController(
+    decimalSeparator: ',',
+    thousandSeparator: '.',
+    leftSymbol: 'R\$ ',
+  );
+  final _valorCoberturalController = MoneyMaskedTextController(
+    decimalSeparator: ',',
+    thousandSeparator: '.',
+    leftSymbol: 'R\$ ',
+  );
   bool _exercidoOperacao = false;
   final _corretoraOperadaController = TextEditingController();
-  final _valorIrrrfController = TextEditingController();
+  final _valorIRRFController = MoneyMaskedTextController(
+    decimalSeparator: ',',
+    thousandSeparator: '.',
+    leftSymbol: 'R\$ ',
+  );
 
   bool _loading = true;
   bool _buscandoCotacao = false;
@@ -71,7 +107,6 @@ class _TransacaoFormScreenState extends State<TransacaoFormScreen>
     super.initState();
     _tabController = TabController(length: 3, vsync: this);
 
-    // Define valor padrão 85% apenas para nova transação
     if (!_isEdicao) {
       _porcentagemPremioController.text = '85.00';
     }
@@ -79,7 +114,45 @@ class _TransacaoFormScreenState extends State<TransacaoFormScreen>
     _carregarUsuarioLogado();
     _carregarAcoes();
     _carregarCorretoras();
-    _preencherEdicao();
+    
+    // Chame _preencherEdicao() APÓS o build estar pronto
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _preencherEdicao();
+    });
+  }
+
+  void _preencherEdicao() {
+    final t = widget.transacao;
+    if (t == null) return;
+    
+    _selectedUsuarioId = t.usuarioId;
+    _selectedAcaoId = t.acaoId;
+    _tipo = t.tipo;
+    _quantidadeController.text = t.quantidade.toString();
+    
+    // Use try-catch para evitar erro com MoneyMaskedTextController
+    try {
+      if (t.precoUnitario > 0) _precoController.updateValue(t.precoUnitario);
+      if ((t.valorMercado ?? 0) > 0) _valorMercadoController.updateValue(t.valorMercado ?? 0.0);
+      if ((t.valorStrike ?? 0) > 0) _valorStrikeController.updateValue(t.valorStrike ?? 0.0);
+      if ((t.valorPremioLiquido ?? 0) > 0) _valorPremioLiquidoController.updateValue(t.valorPremioLiquido ?? 0.0);
+      if ((t.situacaoMomento ?? 0) > 0) _situacaoMomentoController.updateValue(t.situacaoMomento ?? 0.0);
+      if ((t.valorCobertural ?? 0) > 0) _valorCoberturalController.updateValue(t.valorCobertural ?? 0.0);
+      if ((t.valorIRRF ?? 0) > 0) _valorIRRFController.updateValue(t.valorIRRF ?? 0.0);
+      if ((t.valorOperacao ?? 0) > 0) _valorOperacaoController.updateValue(t.valorOperacao ?? 0.0);
+    } catch (e) {
+      print('Erro ao preencher valores: $e');
+    }
+    
+    _selectedCorretoraId = t.corretoraId;
+    _tipoOperacao = t.tipoOperacao;
+    _nomeOpcaoController.text = t.nomeOpcao ?? '';
+    _dataExercicio = t.dataExercicio;
+    _porcentagemPremioController.text = t.porcentagemPremio?.toString() ?? '';
+    _percentualRetornoController.text = t.percentualRetorno?.toString() ?? '';
+    _percentualRetornoLiquidoController.text = t.percentualRetornoLiquido?.toString() ?? '';
+    _exercidoOperacao = t.exercidoOperacao ?? false;
+    _corretoraOperadaController.text = t.corretoraOperada ?? '';
   }
 
   Future<void> _carregarUsuarioLogado() async {
@@ -89,8 +162,7 @@ class _TransacaoFormScreenState extends State<TransacaoFormScreen>
 
   Future<void> _carregarAcoes() async {
     try {
-      final acoes =
-          await _acaoService.listarAcoes(); // deve retornar List<Acao>
+      final acoes = await _acaoService.listarAcoes();
       if (!mounted) return;
       setState(() {
         _acoes = acoes;
@@ -108,7 +180,6 @@ class _TransacaoFormScreenState extends State<TransacaoFormScreen>
   }
 
   Future<void> _carregarCorretoras() async {
-    // NOVO
     try {
       final lista = await _corretoraService.listar();
       if (!mounted) return;
@@ -126,39 +197,11 @@ class _TransacaoFormScreenState extends State<TransacaoFormScreen>
     }
   }
 
-  void _preencherEdicao() {
-    final t = widget.transacao;
-    if (t == null) return;
-    _selectedUsuarioId = t.usuarioId;
-    _selectedAcaoId = t.acaoId;
-    _tipo = t.tipo;
-    _quantidadeController.text = t.quantidade.toString();
-    _precoController.text = t.precoUnitario.toString();
-    _valorController.text = (t.quantidade * t.precoUnitario).toString();
-    _selectedCorretoraId = t.corretoraId; // NOVO
-    _tipoOperacao = t.tipoOperacao;
-    _nomeOpcaoController.text = t.nomeOpcao ?? '';
-    _valorMercadoController.text = t.valorMercado?.toString() ?? '';
-    _valorStrikeController.text = t.valorStrike?.toString() ?? '';
-    _dataExercicio = t.dataExercicio;
-    _porcentagemPremioController.text = t.porcentagemPremio?.toString() ?? '';
-    _valorPremioLiquidoController.text = t.valorPremioLiquido?.toString() ?? '';
-    _percentualRetornoController.text = t.percentualRetorno?.toString() ?? '';
-    _percentualRetornoLiquidoController.text =
-        t.percentualRetornoLiquido?.toString() ?? '';
-    _situacaoMomentoController.text = t.situacaoMomento?.toString() ?? '';
-    _valorCoberturalController.text = t.valorCobertural?.toString() ?? '';
-    _exercidoOperacao = t.exercidoOperacao ?? false;
-    _corretoraOperadaController.text = t.corretoraOperada ?? '';
-    _valorIrrrfController.text = t.valorIrrrf?.toString() ?? '';
-  }
-
   @override
   void dispose() {
     _tabController.dispose();
     _quantidadeController.dispose();
     _precoController.dispose();
-    _valorController.dispose(); // REMOVA se não usar mais
     _nomeOpcaoController.dispose();
     _valorMercadoController.dispose();
     _valorStrikeController.dispose();
@@ -169,7 +212,8 @@ class _TransacaoFormScreenState extends State<TransacaoFormScreen>
     _situacaoMomentoController.dispose();
     _valorCoberturalController.dispose();
     _corretoraOperadaController.dispose();
-    _valorIrrrfController.dispose();
+    _valorIRRFController.dispose();
+    _valorOperacaoController.dispose();
     _yahooService.dispose();
     super.dispose();
   }
@@ -193,27 +237,41 @@ class _TransacaoFormScreenState extends State<TransacaoFormScreen>
         corretoraId: _selectedCorretoraId,
         tipo: _tipo,
         quantidade: int.parse(_quantidadeController.text),
-        precoUnitario: double.parse(_precoController.text.replaceAll(',', '.')),
-        // REMOVA: valor: double.parse(_valorController.text.replaceAll(',', '.')),
+        precoUnitario: _precoController.numberValue.toDouble(),
         tipoOperacao: _tipoOperacao,
         nomeOpcao: _nomeOpcaoController.text.isEmpty
             ? null
             : _nomeOpcaoController.text,
-        valorMercado: _toDouble(_valorMercadoController.text),
-        valorStrike: _toDouble(_valorStrikeController.text),
+        valorMercado: _valorMercadoController.numberValue > 0
+            ? _valorMercadoController.numberValue.toDouble()
+            : null,
+        valorStrike: _valorStrikeController.numberValue > 0
+            ? _valorStrikeController.numberValue.toDouble()
+            : null,
         dataExercicio: _dataExercicio,
         porcentagemPremio: _toDouble(_porcentagemPremioController.text),
-        valorPremioLiquido: _toDouble(_valorPremioLiquidoController.text),
+        valorPremioLiquido: _valorPremioLiquidoController.numberValue > 0
+            ? _valorPremioLiquidoController.numberValue.toDouble()
+            : null,
         percentualRetorno: _toDouble(_percentualRetornoController.text),
         percentualRetornoLiquido:
             _toDouble(_percentualRetornoLiquidoController.text),
-        situacaoMomento: _toDouble(_situacaoMomentoController.text),
-        valorCobertural: _toDouble(_valorCoberturalController.text),
+        situacaoMomento: _situacaoMomentoController.numberValue > 0
+            ? _situacaoMomentoController.numberValue.toDouble()
+            : null,
+        valorCobertural: _valorCoberturalController.numberValue > 0
+            ? _valorCoberturalController.numberValue.toDouble()
+            : null,
         exercidoOperacao: _exercidoOperacao,
         corretoraOperada: _corretoraOperadaController.text.isEmpty
             ? null
             : _corretoraOperadaController.text,
-        valorIrrrf: _toDouble(_valorIrrrfController.text),
+        valorIRRF: _valorIRRFController.numberValue > 0
+            ? _valorIRRFController.numberValue.toDouble()
+            : null,
+        valorOperacao: _valorOperacaoController.numberValue > 0
+            ? _valorOperacaoController.numberValue.toDouble()
+            : null,
       );
 
       if (_isEdicao) {
@@ -253,7 +311,6 @@ class _TransacaoFormScreenState extends State<TransacaoFormScreen>
           children: [
             Row(
               children: [
-                // Garante cor visível do ícone do título do card
                 Icon(icon, color: theme.colorScheme.primary),
                 const SizedBox(width: 8),
                 Text(title,
@@ -281,7 +338,7 @@ class _TransacaoFormScreenState extends State<TransacaoFormScreen>
       if (!mounted) return;
 
       if (preco != null) {
-        _valorMercadoController.text = preco.toStringAsFixed(2);
+        _valorMercadoController.updateValue(preco);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Row(
@@ -323,11 +380,80 @@ class _TransacaoFormScreenState extends State<TransacaoFormScreen>
     }
   }
 
+  void _calcularSituacaoMomento() {
+    // Verifica se tem tipo de operação (CALL ou PUT)
+    if (_tipoOperacao == null || _tipoOperacao!.isEmpty) {
+      _situacaoMomentoController.updateValue(0.0);
+      return;
+    }
+
+    final valorMercado = _valorMercadoController.numberValue;
+    final strike = _valorStrikeController.numberValue;
+    final qtd = int.tryParse(_quantidadeController.text) ?? 0;
+
+    // Precisa ter valores válidos
+    if (valorMercado <= 0 || strike <= 0 || qtd <= 0) {
+      _situacaoMomentoController.updateValue(0.0);
+      return;
+    }
+
+    double situacao = 0.0;
+
+    if (_tipoOperacao == 'CALL') {
+      // CALL: positivo se mercado > strike
+      if (valorMercado > strike) {
+        situacao = (valorMercado - strike) * qtd; // lucro potencial
+      } else {
+        situacao = 0.0; // fora do dinheiro
+      }
+    } else if (_tipoOperacao == 'PUT') {
+      // PUT: positivo se mercado < strike
+      if (valorMercado < strike) {
+        situacao = (strike - valorMercado) * qtd; // lucro potencial
+      } else {
+        situacao = 0.0; // fora do dinheiro
+      }
+    }
+
+    _situacaoMomentoController.updateValue(situacao);
+  }
+
   void _atualizarCobertura() {
     final qtd = int.tryParse(_quantidadeController.text) ?? 0;
-    final strike = _toDouble(_valorStrikeController.text) ?? 0.0;
+    final strike = _valorStrikeController.numberValue;
     final cobertura = qtd * strike;
-    _valorCoberturalController.text = cobertura.toStringAsFixed(2);
+    _valorCoberturalController.updateValue(cobertura);
+    _calcularSituacaoMomento(); // ADICIONE
+  }
+
+  void _calcularValorOperacao() {
+    final qtd = int.tryParse(_quantidadeController.text) ?? 0;
+    final preco = _precoController.numberValue;
+    final valorOperacao = qtd * preco;
+    _valorOperacaoController.updateValue(valorOperacao);
+    _calcularIRRF(); // Recalcula IRRF após atualizar valor operação
+  }
+
+  void _calcularPremioLiquido() {
+    final qtd = int.tryParse(_quantidadeController.text) ?? 0;
+    final preco = _precoController.numberValue;
+    final percentualPremio =
+        double.tryParse(_porcentagemPremioController.text.replaceAll(',', '.')) ?? 0.0;
+    final premioLiquido = qtd * preco * (percentualPremio / 100);
+    _valorPremioLiquidoController.updateValue(premioLiquido);
+    _calcularIRRF(); // Recalcula IRRF após atualizar prêmio
+  }
+
+  // NOVA: Calcular IRRF automaticamente
+  void _calcularIRRF() {
+    final qtd = int.tryParse(_quantidadeController.text) ?? 0;
+    final premio = _valorPremioLiquidoController.numberValue;
+    final valorOperacao = _valorOperacaoController.numberValue;
+    final percentualPremio = double.tryParse(_porcentagemPremioController.text.replaceAll(',', '.')) ?? 0.0;    
+
+    final irrf = (valorOperacao) * ((100 - percentualPremio) / 100);
+
+    _valorIRRFController.updateValue(irrf);
   }
 
   void _corrigirQuantidade() {
@@ -335,10 +461,12 @@ class _TransacaoFormScreenState extends State<TransacaoFormScreen>
     final valor = int.tryParse(texto);
     if (valor == null || valor <= 0) return;
 
-    final corrigido = valor * 100;
+    final corrigido = valor;
     _quantidadeController.text = corrigido.toString();
-    _atualizarCobertura(); // recalcula
-    setState(() {}); // atualiza total exibido
+    _atualizarCobertura();
+    _calcularValorOperacao(); // ADICIONE
+    _calcularPremioLiquido();
+    setState(() {});
   }
 
   @override
@@ -359,14 +487,11 @@ class _TransacaoFormScreenState extends State<TransacaoFormScreen>
       );
     }
 
-    final theme = Theme.of(context);
-
     return Scaffold(
       appBar: AppBar(
         title: Text(_isEdicao ? 'Editar Transação' : 'Nova Transação'),
         bottom: TabBar(
           controller: _tabController,
-          // Cores explícitas para manter ícones/labels visíveis sobre a AppBar
           labelColor: Colors.white,
           unselectedLabelColor: Colors.white70,
           indicatorColor: Colors.white,
@@ -415,7 +540,7 @@ class _TransacaoFormScreenState extends State<TransacaoFormScreen>
           icon: Icons.person,
           children: [
             DropdownButtonFormField<int>(
-              value: _selectedAcaoId,
+              initialValue: _selectedAcaoId,
               decoration: InputDecoration(
                 labelText: 'Ação',
                 border:
@@ -443,14 +568,14 @@ class _TransacaoFormScreenState extends State<TransacaoFormScreen>
               onChanged: (val) {
                 if (val != null) {
                   setState(() => _selectedAcaoId = val);
-                  _buscarCotacaoAcao(val); // BUSCA COTAÇÃO AUTOMATICAMENTE
+                  _buscarCotacaoAcao(val);
                 }
               },
               validator: (val) => val == null ? 'Obrigatório' : null,
             ),
             const SizedBox(height: 16),
             DropdownButtonFormField<int>(
-              value: _selectedCorretoraId,
+              initialValue: _selectedCorretoraId,
               decoration: InputDecoration(
                 labelText: 'Corretora',
                 border:
@@ -501,12 +626,15 @@ class _TransacaoFormScreenState extends State<TransacaoFormScreen>
                       helperText: 'Múltiplos de 100',
                     ),
                     keyboardType: TextInputType.number,
+                    inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                     onChanged: (_) {
                       setState(() {});
                       _atualizarCobertura();
+                      _calcularValorOperacao(); // ADICIONE
+                      _calcularPremioLiquido();
                     },
                     onEditingComplete: _corrigirQuantidade,
-                    onTapOutside: (_) => _corrigirQuantidade(),          // ajusta ao perder foco (clique fora)
+                    onTapOutside: (_) => _corrigirQuantidade(),
                     validator: (val) {
                       if (val == null || val.isEmpty) return 'Obrigatório';
                       final n = int.tryParse(val);
@@ -522,19 +650,24 @@ class _TransacaoFormScreenState extends State<TransacaoFormScreen>
                   child: TextFormField(
                     controller: _precoController,
                     decoration: InputDecoration(
-                      labelText: 'Preço (R\$)',
-                      hintText: '0,00',
-                      prefixText: 'R\$ ',
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                      labelText: 'Preço',
+                      border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12)),
                       prefixIcon: const Icon(Icons.attach_money),
                     ),
-                    keyboardType:
-                        const TextInputType.numberWithOptions(decimal: true),
-                    onChanged: (_) => setState(() {}), // ATUALIZA ao digitar
+                    keyboardType: TextInputType.number,
+                    onChanged: (_) {
+                      setState(() {});
+                      _calcularValorOperacao(); // ADICIONE
+                      _calcularPremioLiquido();
+                    },
                     validator: (val) {
-                      if (val == null || val.isEmpty) return 'Obrigatório';
-                      final n = _toDouble(val);
-                      if (n == null || n <= 0) return 'Deve ser > 0';
+                      if (val == null || val.trim().isEmpty) {
+                        return 'Obrigatório';
+                      }
+                      if (_precoController.numberValue <= 0) {
+                        return 'Deve ser > 0';
+                      }
                       return null;
                     },
                   ),
@@ -553,7 +686,7 @@ class _TransacaoFormScreenState extends State<TransacaoFormScreen>
   // NOVO: Método para calcular e exibir o total
   Widget _buildTotalOperacao() {
     final qtd = int.tryParse(_quantidadeController.text) ?? 0;
-    final preco = _toDouble(_precoController.text) ?? 0.0;
+    final preco = _precoController.numberValue;
     final total = qtd * preco;
 
     final theme = Theme.of(context);
@@ -626,8 +759,7 @@ class _TransacaoFormScreenState extends State<TransacaoFormScreen>
               initialValue: _tipoOperacao,
               decoration: InputDecoration(
                 labelText: 'Tipo de Operação',
-                border:
-                    OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                 prefixIcon: const Icon(Icons.swap_calls),
               ),
               items: const [
@@ -635,7 +767,10 @@ class _TransacaoFormScreenState extends State<TransacaoFormScreen>
                 DropdownMenuItem(value: 'PUT', child: Text('PUT')),
                 DropdownMenuItem(value: 'CALL', child: Text('CALL')),
               ],
-              onChanged: (val) => setState(() => _tipoOperacao = val),
+              onChanged: (val) {
+                setState(() => _tipoOperacao = val);
+                _calcularSituacaoMomento(); // ADICIONE
+              },
             ),
             const SizedBox(height: 16),
             TextFormField(
@@ -643,8 +778,7 @@ class _TransacaoFormScreenState extends State<TransacaoFormScreen>
               decoration: InputDecoration(
                 labelText: 'Nome da Opção',
                 hintText: 'Ex.: PETR4C40',
-                border:
-                    OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                 prefixIcon: const Icon(Icons.label),
               ),
             ),
@@ -656,9 +790,8 @@ class _TransacaoFormScreenState extends State<TransacaoFormScreen>
                     controller: _valorMercadoController,
                     decoration: InputDecoration(
                       labelText: 'Valor Mercado',
-                      hintText: '0,00',
-                      prefixText: 'R\$ ',
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                      border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12)),
                       prefixIcon: const Icon(Icons.attach_money),
                       suffixIcon: IconButton(
                         icon: const Icon(Icons.refresh),
@@ -668,9 +801,9 @@ class _TransacaoFormScreenState extends State<TransacaoFormScreen>
                             : () => _buscarCotacaoAcao(_selectedAcaoId!),
                       ),
                     ),
-                    keyboardType:
-                        const TextInputType.numberWithOptions(decimal: true),
+                    keyboardType: TextInputType.number,
                     readOnly: _buscandoCotacao,
+                    onChanged: (_) => _calcularSituacaoMomento(), // ADICIONE
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -679,14 +812,15 @@ class _TransacaoFormScreenState extends State<TransacaoFormScreen>
                     controller: _valorStrikeController,
                     decoration: InputDecoration(
                       labelText: 'Strike',
-                      hintText: '0,00',
-                      prefixText: 'R\$ ',
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                      border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12)),
                       prefixIcon: const Icon(Icons.gps_fixed),
                     ),
-                    keyboardType:
-                        const TextInputType.numberWithOptions(decimal: true),
-                    onChanged: (_) => _atualizarCobertura(),
+                    keyboardType: TextInputType.number,
+                    onChanged: (_) {
+                      _atualizarCobertura();
+                      _calcularSituacaoMomento(); // ADICIONE
+                    },
                   ),
                 ),
               ],
@@ -718,6 +852,9 @@ class _TransacaoFormScreenState extends State<TransacaoFormScreen>
                     ),
                     keyboardType:
                         const TextInputType.numberWithOptions(decimal: true),
+                    inputFormatters: [
+                      FilteringTextInputFormatter.allow(RegExp(r'[0-9.]')),
+                    ],
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -725,13 +862,14 @@ class _TransacaoFormScreenState extends State<TransacaoFormScreen>
                   child: TextFormField(
                     controller: _valorPremioLiquidoController,
                     decoration: InputDecoration(
-                      labelText: 'Prêmio Líq. (R\$)',
+                      labelText: 'Prêmio Líq.',
                       border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12)),
                       prefixIcon: const Icon(Icons.attach_money),
+                      helperText: 'Auto-calculado: Qtd × Preço × Prêmio(%)',
                     ),
-                    keyboardType:
-                        const TextInputType.numberWithOptions(decimal: true),
+                    keyboardType: TextInputType.number,
+                    readOnly: true, // TORNE READONLY
                   ),
                 ),
               ],
@@ -750,6 +888,9 @@ class _TransacaoFormScreenState extends State<TransacaoFormScreen>
                     ),
                     keyboardType:
                         const TextInputType.numberWithOptions(decimal: true),
+                    inputFormatters: [
+                      FilteringTextInputFormatter.allow(RegExp(r'[0-9.]')),
+                    ],
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -764,6 +905,9 @@ class _TransacaoFormScreenState extends State<TransacaoFormScreen>
                     ),
                     keyboardType:
                         const TextInputType.numberWithOptions(decimal: true),
+                    inputFormatters: [
+                      FilteringTextInputFormatter.allow(RegExp(r'[0-9.]')),
+                    ],
                   ),
                 ),
               ],
@@ -807,31 +951,21 @@ class _TransacaoFormScreenState extends State<TransacaoFormScreen>
               shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12)),
             ),
-            // const SizedBox(height: 16),
-            // TextFormField(
-            //   controller: _corretoraOperadaController,
-            //   decoration: InputDecoration(
-            //     labelText: 'Corretora',
-            //     hintText: 'Ex.: Clear, Rico',
-            //     border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-            //     prefixIcon: const Icon(Icons.business),
-            //   ),
-            // ),
             const SizedBox(height: 16),
             Row(
               children: [
                 Expanded(
                   child: TextFormField(
-                    controller: _valorIrrrfController,
+                    controller: _valorIRRFController,
                     decoration: InputDecoration(
-                      labelText: 'IRRF (R\$)',
-                      hintText: '0,00',
-                      prefixText: 'R\$ ',
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                      labelText: 'IRRF',
+                      border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12)),
                       prefixIcon: const Icon(Icons.account_balance),
+                      helperText: 'Auto-calculado',
                     ),
-                    keyboardType:
-                        const TextInputType.numberWithOptions(decimal: true),
+                    keyboardType: TextInputType.number,
+                    readOnly: true,
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -839,14 +973,14 @@ class _TransacaoFormScreenState extends State<TransacaoFormScreen>
                   child: TextFormField(
                     controller: _valorCoberturalController,
                     decoration: InputDecoration(
-                      labelText: 'Cobertural (R\$)',
-                      hintText: '0,00',
-                      prefixText: 'R\$ ',
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                      labelText: 'Cobertural',
+                      border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12)),
                       prefixIcon: const Icon(Icons.shield),
+                      helperText: 'Auto-calculado: Qtd × Strike',
                     ),
-                    keyboardType:
-                        const TextInputType.numberWithOptions(decimal: true),
+                    keyboardType: TextInputType.number,
+                    readOnly: true,
                   ),
                 ),
               ],
@@ -855,15 +989,14 @@ class _TransacaoFormScreenState extends State<TransacaoFormScreen>
             TextFormField(
               controller: _situacaoMomentoController,
               decoration: InputDecoration(
-                labelText: 'Situação Momento (R\$)',
-                hintText: '0,00',
-                prefixText: 'R\$ ',
-                border:
-                    OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                labelText: 'Situação Momento',
+                border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12)),
                 prefixIcon: const Icon(Icons.info_outline),
+                helperText: 'CALL: Mercado > Strike | PUT: Mercado < Strike',
               ),
-              keyboardType:
-                  const TextInputType.numberWithOptions(decimal: true),
+              keyboardType: TextInputType.number,
+              readOnly: true, // TORNE READONLY
             ),
           ],
         ),

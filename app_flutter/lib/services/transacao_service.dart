@@ -39,7 +39,8 @@ class TransacaoService {
       'valor_cobertural': t.valorCobertural,
       'exercido_operacao': t.exercidoOperacao,
       'corretora_operada': t.corretoraOperada,
-      'valor_irrf': t.valorIrrrf,
+      'valor_irrf': t.valorIRRF,
+      'valor_operacao': t.valorOperacao,
       'data_transacao': t.dataTransacao?.toIso8601String(),
       'corretora_id': t.corretoraId,
     };
@@ -67,7 +68,8 @@ class TransacaoService {
       'valor_cobertural': t.valorCobertural,
       'exercido_operacao': t.exercidoOperacao,
       'corretora_operada': t.corretoraOperada,
-      'valor_irrf': t.valorIrrrf,
+      'valor_irrf': t.valorIRRF,
+      'valor_operacao': t.valorOperacao,
       'data_transacao': t.dataTransacao?.toIso8601String(),
       'corretora_id': t.corretoraId,
     };
