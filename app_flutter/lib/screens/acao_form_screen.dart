@@ -28,6 +28,8 @@ class _AcaoFormScreenState extends State<AcaoFormScreen> {
       _codigoController.text = widget.acao!.codigo;
       _nomeController.text = widget.acao!.nomeEmpresa;
       _precoAtualController.text = (widget.acao!.precoAtual ?? '').toString();
+      // Busca cotação atualizada ao carregar para edição
+      Future.microtask(() => _buscarCotacao());
     }
     _codigoController.addListener(_onCodigoChanged);
   }
@@ -45,16 +47,43 @@ class _AcaoFormScreenState extends State<AcaoFormScreen> {
   Future<void> _onCodigoChanged() async {
     final cod = _codigoController.text.trim();
     if (cod.length < 4) return;
-    setState(() => _buscandoPreco = true);
-    final preco = await _yahoo.obterCotacao(cod);
-    if (!mounted) return;
-    if (preco != null) {
-      _precoAtualController.text = preco.toStringAsFixed(2);
-    }
-    setState(() => _buscandoPreco = false);
+    await _buscarCotacao();
   }
 
-  double? _toDouble(String s) => s.trim().isEmpty ? null : double.tryParse(s.replaceAll(',', '.'));
+  Future<void> _buscarCotacao() async {
+    final cod = _codigoController.text.trim();
+    if (cod.isEmpty) return;
+
+    setState(() => _buscandoPreco = true);
+    try {
+      final preco = await _yahoo.obterCotacao(cod);
+      if (!mounted) return;
+      if (preco != null) {
+        _precoAtualController.text = preco.toStringAsFixed(2);
+      } else {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+              content: Text('Não foi possível obter a cotação'),
+              duration: Duration(seconds: 2)),
+        );
+      }
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+            content: Text('Erro ao buscar cotação: $e'),
+            duration: const Duration(seconds: 2)),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _buscandoPreco = false);
+      }
+    }
+  }
+
+  double? _toDouble(String s) =>
+      s.trim().isEmpty ? null : double.tryParse(s.replaceAll(',', '.'));
 
   Future<void> _salvar() async {
     if (!_formKey.currentState!.validate()) return;
@@ -76,14 +105,16 @@ class _AcaoFormScreenState extends State<AcaoFormScreen> {
       Navigator.pop(context, true);
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Erro: $e')));
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('Erro: $e')));
     }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text(widget.acao == null ? 'Nova Ação' : 'Editar Ação')),
+      appBar: AppBar(
+          title: Text(widget.acao == null ? 'Nova Ação' : 'Editar Ação')),
       body: Padding(
         padding: const EdgeInsets.all(16),
         child: Form(
@@ -92,25 +123,46 @@ class _AcaoFormScreenState extends State<AcaoFormScreen> {
             children: [
               TextFormField(
                 controller: _codigoController,
-                decoration: const InputDecoration(labelText: 'Código', border: OutlineInputBorder()),
+                decoration: const InputDecoration(
+                    labelText: 'Código', border: OutlineInputBorder()),
                 validator: (v) => v == null || v.isEmpty ? 'Obrigatório' : null,
               ),
               const SizedBox(height: 12),
               TextFormField(
                 controller: _nomeController,
-                decoration: const InputDecoration(labelText: 'Empresa', border: OutlineInputBorder()),
+                decoration: const InputDecoration(
+                    labelText: 'Empresa', border: OutlineInputBorder()),
                 validator: (v) => v == null || v.isEmpty ? 'Obrigatório' : null,
               ),
               const SizedBox(height: 12),
               TextFormField(
                 controller: _precoAtualController,
-                keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                decoration: InputDecoration( // MOVA O suffixIcon PARA A DECORATION
+                keyboardType:
+                    const TextInputType.numberWithOptions(decimal: true),
+                decoration: InputDecoration(
                   labelText: 'Preço Atual (opcional)',
                   border: const OutlineInputBorder(),
-                  suffixIcon: _buscandoPreco
-                      ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
-                      : const Icon(Icons.attach_money),
+                  suffixIcon: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (_buscandoPreco)
+                        const Padding(
+                          padding: EdgeInsets.all(12.0),
+                          child: SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          ),
+                        )
+                      else
+                        IconButton(
+                          icon: const Icon(Icons.refresh),
+                          tooltip: 'Atualizar cotação',
+                          onPressed: _buscarCotacao,
+                        ),
+                      const SizedBox(width: 8),
+                    ],
+                  ),
                 ),
               ),
               const SizedBox(height: 16),
