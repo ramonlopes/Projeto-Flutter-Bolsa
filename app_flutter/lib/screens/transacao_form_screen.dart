@@ -793,17 +793,29 @@ class _TransacaoFormScreenState extends State<TransacaoFormScreen>
                       border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12)),
                       prefixIcon: const Icon(Icons.attach_money),
-                      suffixIcon: IconButton(
-                        icon: const Icon(Icons.refresh),
-                        tooltip: 'Atualizar cotação',
-                        onPressed: _selectedAcaoId == null
-                            ? null
-                            : () => _buscarCotacaoAcao(_selectedAcaoId!),
-                      ),
+                      suffixIcon: _buscandoCotacao
+                          ? const Padding(
+                              padding: EdgeInsets.all(12),
+                              child: SizedBox(
+                                width: 20,
+                                height: 20,
+                                child: CircularProgressIndicator(strokeWidth: 2),
+                              ),
+                            )
+                          : IconButton(
+                              icon: const Icon(Icons.refresh),
+                              tooltip: 'Atualizar cotação',
+                              onPressed: _selectedAcaoId == null
+                                  ? null
+                                  : () => _buscarCotacaoAcao(_selectedAcaoId!),
+                            ),
+                      helperText: _buscandoCotacao
+                          ? 'Buscando cotação...'
+                          : 'Cotação em tempo real',
                     ),
                     keyboardType: TextInputType.number,
                     readOnly: _buscandoCotacao,
-                    onChanged: (_) => _calcularSituacaoMomento(), // ADICIONE
+                    onChanged: (_) => _calcularSituacaoMomento(),
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -819,7 +831,7 @@ class _TransacaoFormScreenState extends State<TransacaoFormScreen>
                     keyboardType: TextInputType.number,
                     onChanged: (_) {
                       _atualizarCobertura();
-                      _calcularSituacaoMomento(); // ADICIONE
+                      _calcularSituacaoMomento();
                     },
                   ),
                 ),

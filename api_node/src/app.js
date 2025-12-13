@@ -4,6 +4,7 @@ import usuarioRoutes from './routes/usuarioRoutes.js';
 import acaoRoutes from './routes/acaoRoutes.js';
 import transacaoRoutes from './routes/transacaoRoutes.js';
 import corretoraRoutes from './routes/corretoraRoutes.js';
+import yahooRoutes from './routes/yahoo.js';
 
 export function createApp() {
   const app = express();
@@ -34,6 +35,7 @@ export function createApp() {
   app.use('/acoes', acaoRoutes);
   app.use('/transacoes', transacaoRoutes);
   app.use('/corretoras', corretoraRoutes); 
+  app.use('/yahoo', yahooRoutes);
 
   app.use((req, res) => res.status(404).json({ error: 'Rota não encontrada' }));
 
