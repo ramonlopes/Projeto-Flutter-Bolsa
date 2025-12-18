@@ -20,7 +20,7 @@ class _TransacoesScreenState extends State<TransacoesScreen> {
   final _currency = NumberFormat.currency(locale: 'pt_BR', symbol: 'R\$');
   final _date = DateFormat('dd/MM/yyyy');
   
-  String _filtroTipo = 'todas';
+  String _filtroTipo = 'todos'; // mudou de 'todas' para 'todos'
   String _ordenacao = 'data_desc';
 
   @override
@@ -36,10 +36,10 @@ class _TransacoesScreenState extends State<TransacoesScreen> {
   }
 
   List<Transacao> _aplicarFiltros(List<Transacao> lista) {
-    // Filtrar por tipo
+    // Filtrar por tipo de operação
     var filtrada = lista;
-    if (_filtroTipo != 'todas') {
-      filtrada = lista.where((t) => t.tipo.toLowerCase() == _filtroTipo).toList();
+    if (_filtroTipo != 'todos') {
+      filtrada = lista.where((t) => t.tipoOperacao?.toUpperCase() == _filtroTipo.toUpperCase()).toList();
     }
 
     // Ordenar
@@ -62,28 +62,36 @@ class _TransacoesScreenState extends State<TransacoesScreen> {
   }
 
   Map<String, double> _calcularEstatisticas(List<Transacao> lista) {
-    double totalCompras = 0;
-    double totalVendas = 0;
-    int countCompras = 0;
-    int countVendas = 0;
+    double totalPut = 0;
+    double totalCall = 0;
+    double totalPremioLiquido = 0;
+    int countPut = 0;
+    int countCall = 0;
 
     for (var t in lista) {
-      final valor = t.precoUnitario * t.quantidade;
-      if (t.tipo.toLowerCase() == 'compra') {
-        totalCompras += valor;
-        countCompras++;
-      } else {
-        totalVendas += valor;
-        countVendas++;
+      // Soma prêmio líquido
+      if (t.valorPremioLiquido != null) {
+        totalPremioLiquido += t.valorPremioLiquido!;
+      }
+
+      // Separa por tipo de operação
+      if (t.tipoOperacao == 'PUT') {
+        final valor = t.precoUnitario * t.quantidade;
+        totalPut += valor;
+        countPut++;
+      } else if (t.tipoOperacao == 'CALL') {
+        final valor = t.precoUnitario * t.quantidade;
+        totalCall += valor;
+        countCall++;
       }
     }
 
     return {
-      'totalCompras': totalCompras,
-      'totalVendas': totalVendas,
-      'saldo': totalVendas - totalCompras,
-      'countCompras': countCompras.toDouble(),
-      'countVendas': countVendas.toDouble(),
+      'totalPut': totalPut,
+      'totalCall': totalCall,
+      'saldo': totalPremioLiquido,
+      'countPut': countPut.toDouble(),
+      'countCall': countCall.toDouble(),
     };
   }
 
@@ -236,10 +244,10 @@ class _TransacoesScreenState extends State<TransacoesScreen> {
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(Icons.analytics, color: Colors.white, size: 16),
+                    const Icon(Icons.analytics, color: Colors.white, size: 16),
                     const SizedBox(width: 4),
                     Text(
-                      '${stats['countCompras']!.toInt() + stats['countVendas']!.toInt()} ops',
+                      '${stats['countPut']!.toInt() + stats['countCall']!.toInt()} ops',
                       style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
                     ),
                   ],
@@ -252,21 +260,21 @@ class _TransacoesScreenState extends State<TransacoesScreen> {
             children: [
               Expanded(
                 child: _estatisticaItem(
-                  Icons.arrow_downward,
-                  'Compras',
-                  _currency.format(stats['totalCompras']),
-                  '${stats['countCompras']!.toInt()} ops',
-                  Colors.green.shade300,
+                  Icons.trending_down,
+                  'PUT',
+                  _currency.format(stats['totalPut']),
+                  '${stats['countPut']!.toInt()} ops',
+                  Colors.purple.shade300,
                 ),
               ),
               const SizedBox(width: 12),
               Expanded(
                 child: _estatisticaItem(
-                  Icons.arrow_upward,
-                  'Vendas',
-                  _currency.format(stats['totalVendas']),
-                  '${stats['countVendas']!.toInt()} ops',
-                  Colors.red.shade300,
+                  Icons.trending_up,
+                  'CALL',
+                  _currency.format(stats['totalCall']),
+                  '${stats['countCall']!.toInt()} ops',
+                  Colors.orange.shade300,
                 ),
               ),
             ],
@@ -281,13 +289,19 @@ class _TransacoesScreenState extends State<TransacoesScreen> {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Text(
-                  'Saldo',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                  ),
+                const Row(
+                  children: [
+                    Icon(Icons.account_balance_wallet, color: Colors.white, size: 20),
+                    SizedBox(width: 8),
+                    Text(
+                      'Prêmio Líquido Total',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
                 ),
                 Text(
                   _currency.format(stats['saldo']),
@@ -363,11 +377,11 @@ class _TransacoesScreenState extends State<TransacoesScreen> {
               scrollDirection: Axis.horizontal,
               child: Row(
                 children: [
-                  _filtroChip('Todas', 'todas'),
+                  _filtroChip('Todos', 'todos'),
                   const SizedBox(width: 8),
-                  _filtroChip('Compras', 'compra', icon: Icons.arrow_downward, cor: Colors.green),
+                  _filtroChip('PUT', 'PUT', icon: Icons.trending_down, cor: Colors.purple),
                   const SizedBox(width: 8),
-                  _filtroChip('Vendas', 'venda', icon: Icons.arrow_upward, cor: Colors.red),
+                  _filtroChip('CALL', 'CALL', icon: Icons.trending_up, cor: Colors.orange),
                 ],
               ),
             ),

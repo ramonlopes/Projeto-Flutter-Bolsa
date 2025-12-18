@@ -9,12 +9,18 @@ router.get('/cotacao/:simbolo', async (req, res, next) => {
     const { simbolo } = req.params;
     const url = `https://query1.finance.yahoo.com/v8/finance/chart/${simbolo}?interval=1d&range=1d`;
     
-    const response = await axios.get(url, {
-      timeout: 5000,
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
-      }
-    });
+    let response;
+    try {
+      response = await axios.get(url, {
+        timeout: 5000,
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+        }
+      });
+    } catch (axiosError) {
+      console.error(`Erro ao buscar ${simbolo} do Yahoo:`, axiosError.code || axiosError.message);
+      return res.status(503).json({ error: 'Serviço indisponível temporariamente' });
+    }
 
     const result = response.data?.chart?.result?.[0];
     if (!result) {
@@ -30,8 +36,10 @@ router.get('/cotacao/:simbolo', async (req, res, next) => {
       atualizadoEm: new Date((meta?.regularMarketTime || 0) * 1000).toISOString(),
     });
   } catch (error) {
-    console.error('Erro proxy Yahoo Finance:', error.message);
-    res.status(500).json({ error: 'Erro ao buscar cotação' });
+    console.error('Erro inesperado em /cotacao/:simbolo:', error.message);
+    if (!res.headersSent) {
+      res.status(500).json({ error: 'Erro ao buscar cotação' });
+    }
   }
 });
 
@@ -47,10 +55,16 @@ router.post('/cotacoes', async (req, res, next) => {
     const promises = simbolos.map(async (simbolo) => {
       try {
         const url = `https://query1.finance.yahoo.com/v8/finance/chart/${simbolo}?interval=1d&range=1d`;
-        const response = await axios.get(url, {
-          timeout: 5000,
-          headers: { 'User-Agent': 'Mozilla/5.0' }
-        });
+        let response;
+        try {
+          response = await axios.get(url, {
+            timeout: 5000,
+            headers: { 'User-Agent': 'Mozilla/5.0' }
+          });
+        } catch (axiosError) {
+          console.warn(`Falha ao buscar ${simbolo}:`, axiosError.code || axiosError.message);
+          return { simbolo, preco: null, variacaoPercent: null };
+        }
         
         const meta = response.data?.chart?.result?.[0]?.meta;
         return {
@@ -58,7 +72,8 @@ router.post('/cotacoes', async (req, res, next) => {
           preco: meta?.regularMarketPrice || null,
           variacaoPercent: meta?.regularMarketChangePercent || null,
         };
-      } catch {
+      } catch (err) {
+        console.warn(`Erro ao processar ${simbolo}:`, err.message);
         return { simbolo, preco: null, variacaoPercent: null };
       }
     });
@@ -67,7 +82,9 @@ router.post('/cotacoes', async (req, res, next) => {
     res.json(resultados);
   } catch (error) {
     console.error('Erro ao buscar cotações:', error.message);
-    res.status(500).json({ error: 'Erro ao buscar cotações' });
+    if (!res.headersSent) {
+      res.status(500).json({ error: 'Erro ao buscar cotações' });
+    }
   }
 });
 
