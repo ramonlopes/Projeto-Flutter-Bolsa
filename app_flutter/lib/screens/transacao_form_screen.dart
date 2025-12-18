@@ -119,6 +119,10 @@ class _TransacaoFormScreenState extends State<TransacaoFormScreen>
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _preencherEdicao();
     });
+
+    // Use o usuário da transação (edição) como usuário atual
+    _usuarioIdLogado = widget.transacao?.usuarioId;
+    _selectedUsuarioId = _usuarioIdLogado;
   }
 
   void _preencherEdicao() {
@@ -469,6 +473,24 @@ class _TransacaoFormScreenState extends State<TransacaoFormScreen>
     setState(() {});
   }
 
+  // Substitua o Dropdown de usuário que usa _auth.usuarios por um item único do usuário atual
+  Widget _usuarioDropdown() {
+    return DropdownButtonFormField<int>(
+      initialValue: _selectedUsuarioId, // was: value
+      decoration: const InputDecoration(labelText: 'Usuário'),
+      items: (_usuarioIdLogado == null)
+          ? const []
+          : [
+              DropdownMenuItem<int>(
+                value: _usuarioIdLogado,
+                child: const Text('Usuário atual'),
+              ),
+            ],
+      onChanged: (val) => setState(() => _selectedUsuarioId = val),
+      validator: (val) => val == null ? 'Usuário inválido' : null,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_loading) {
@@ -539,8 +561,10 @@ class _TransacaoFormScreenState extends State<TransacaoFormScreen>
           title: 'Identificação',
           icon: Icons.person,
           children: [
+            _usuarioDropdown(),
+            const SizedBox(height: 16),
             DropdownButtonFormField<int>(
-              initialValue: _selectedAcaoId,
+              initialValue: _selectedAcaoId, // was: value
               decoration: InputDecoration(
                 labelText: 'Ação',
                 border:
@@ -575,7 +599,7 @@ class _TransacaoFormScreenState extends State<TransacaoFormScreen>
             ),
             const SizedBox(height: 16),
             DropdownButtonFormField<int>(
-              initialValue: _selectedCorretoraId,
+              initialValue: _selectedCorretoraId, // was: value
               decoration: InputDecoration(
                 labelText: 'Corretora',
                 border:
@@ -696,8 +720,8 @@ class _TransacaoFormScreenState extends State<TransacaoFormScreen>
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: isCompra
-            ? Colors.red.withOpacity(0.08)
-            : Colors.green.withOpacity(0.08),
+            ? Colors.red.withValues(alpha: 0.08)   // was: withOpacity(0.08)
+            : Colors.green.withValues(alpha: 0.08),// was: withOpacity(0.08)
         border: Border.all(
           color: isCompra ? Colors.red.shade300 : Colors.green.shade300,
           width: 2,
@@ -756,20 +780,20 @@ class _TransacaoFormScreenState extends State<TransacaoFormScreen>
           icon: Icons.trending_up,
           children: [
             DropdownButtonFormField<String?>(
-              initialValue: _tipoOperacao,
+              initialValue: _tipoOperacao, // was: value + wrong non-nullable generic
               decoration: InputDecoration(
                 labelText: 'Tipo de Operação',
                 border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                 prefixIcon: const Icon(Icons.swap_calls),
               ),
               items: const [
-                DropdownMenuItem(value: null, child: Text('Nenhum')),
-                DropdownMenuItem(value: 'PUT', child: Text('PUT')),
-                DropdownMenuItem(value: 'CALL', child: Text('CALL')),
+                DropdownMenuItem<String?>(value: null, child: Text('Nenhum')),
+                DropdownMenuItem<String?>(value: 'PUT', child: Text('PUT')),
+                DropdownMenuItem<String?>(value: 'CALL', child: Text('CALL')),
               ],
               onChanged: (val) {
                 setState(() => _tipoOperacao = val);
-                _calcularSituacaoMomento(); // ADICIONE
+                _calcularSituacaoMomento();
               },
             ),
             const SizedBox(height: 16),

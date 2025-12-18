@@ -28,12 +28,9 @@ class MyApp extends StatelessWidget {
           backgroundColor: colorScheme.primary,
           foregroundColor: Colors.white,
         ),
-        cardTheme: CardThemeData(
-          elevation: 6,
-          margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          shadowColor: colorScheme.primary.withOpacity(0.25),
-          clipBehavior: Clip.antiAlias,
+        cardTheme: const CardThemeData(
+          elevation: 2,
+          margin: EdgeInsets.all(8),
         ),
         inputDecorationTheme: const InputDecorationTheme(
           border: OutlineInputBorder(
