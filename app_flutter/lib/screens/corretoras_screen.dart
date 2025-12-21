@@ -30,36 +30,27 @@ class _CorretorasScreenState extends State<CorretorasScreen> {
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Text('Excluir corretora?'),
-        content: Text('Confirma excluir ${c.nome}?'),
+        title: const Text('Excluir corretora'),
+        content: Text('Deseja excluir "${c.nome}"?'),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancelar')),
-          FilledButton(
-            style: FilledButton.styleFrom(backgroundColor: Colors.red),
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Excluir'),
-          ),
+          TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Excluir')),
         ],
       ),
-    );
-    if (ok != true) return;
-    final messenger = ScaffoldMessenger.of(context);
-    try {
-      await _service.deletar(c.id);
-      messenger.showSnackBar(SnackBar(
-        content: const Text('Corretora excluída'),
-        backgroundColor: Colors.green.shade700,
-        behavior: SnackBarBehavior.floating,
-      ));
-      _recarregar();
-    } catch (e) {
-      messenger.showSnackBar(SnackBar(
-        content: Text('Erro ao excluir: $e'),
-        backgroundColor: Colors.red.shade700,
-        behavior: SnackBarBehavior.floating,
-      ));
+    ) ?? false;
+
+    if (!ok) return;
+
+    final id = c.id;
+    if (id == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Corretora sem ID. Não é possível excluir.')),
+      );
+      return;
     }
+
+    await _service.deletar(id); // id é int
+    _recarregar();
   }
 
   Widget _cardCorretora(Corretora c) {
@@ -226,13 +217,33 @@ class _CorretorasScreenState extends State<CorretorasScreen> {
                 );
               }
 
-              return ListView(
+              return ListView.builder(
                 physics: const AlwaysScrollableScrollPhysics(),
-                children: [
-                  _header(),
-                  ...corretoras.map(_cardCorretora),
-                  const SizedBox(height: 80),
-                ],
+                itemCount: corretoras.length,
+                itemBuilder: (ctx, i) {
+                  final c = corretoras[i];
+                  return Card(
+                    elevation: 6,
+                    margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                    shadowColor: theme.colorScheme.primary.withOpacity(0.25),
+                    child: ListTile(
+                      title: Text(c.nome),
+                      subtitle: Text(c.cnpj ?? ''),
+                      trailing: Text(
+                        _currency.format(c.saldo ?? 0),
+                        style: const TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                      onTap: () async {
+                        final ok = await Navigator.push<bool>(
+                          context,
+                          MaterialPageRoute(builder: (_) => CorretoraFormScreen(corretora: c)),
+                        );
+                        if (ok == true) _recarregar();
+                      },
+                    ),
+                  );
+                },
               );
             },
           ),

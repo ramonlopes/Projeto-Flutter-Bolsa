@@ -3,34 +3,23 @@ class Acao {
   final String codigo;
   final String nomeEmpresa;
   final double? precoAtual;
+  final double? precoMedio; // novo campo
 
   Acao({
     required this.id,
     required this.codigo,
     required this.nomeEmpresa,
     this.precoAtual,
+    this.precoMedio, // novo
   });
 
-  factory Acao.fromJson(Map<String, dynamic> j) {
-    double? toDouble(dynamic v) {
-      if (v == null) return null;
-      if (v is num) return v.toDouble();
-      if (v is String) return double.tryParse(v.replaceAll(',', '.'));
-      return null;
-    }
-
-    int toInt(dynamic v) {
-      if (v is int) return v;
-      if (v is num) return v.toInt();
-      if (v is String) return int.tryParse(v) ?? 0;
-      return 0;
-    }
-
+  factory Acao.fromJson(Map<String, dynamic> json) {
     return Acao(
-      id: toInt(j['id']),
-      codigo: (j['codigo'] ?? j['symbol'] ?? '').toString(),
-      nomeEmpresa: (j['nome_empresa'] ?? j['nomeEmpresa'] ?? '').toString(),
-      precoAtual: toDouble(j['preco_atual'] ?? j['precoAtual'] ?? j['preco'] ?? j['price']),
+      id: json['id'] as int,
+      codigo: json['codigo'] as String,
+      nomeEmpresa: json['nomeEmpresa'] ?? json['nome_empresa'] ?? '',
+      precoAtual: _toDouble(json['precoAtual'] ?? json['preco_atual']),
+      precoMedio: _toDouble(json['precoMedio'] ?? json['preco_medio']), // novo
     );
   }
 
@@ -38,17 +27,32 @@ class Acao {
     return {
       'id': id,
       'codigo': codigo,
-      'nome_empresa': nomeEmpresa,
-      if (precoAtual != null) 'preco_atual': precoAtual,
+      'nomeEmpresa': nomeEmpresa,
+      'precoAtual': precoAtual,
+      'precoMedio': precoMedio, // novo
     };
   }
 
-  Acao copyWith({String? codigo, String? nomeEmpresa, double? precoAtual}) {
+  Acao copyWith({
+    int? id,
+    String? codigo,
+    String? nomeEmpresa,
+    double? precoAtual,
+    double? precoMedio, // novo
+  }) {
     return Acao(
-      id: id,
+      id: id ?? this.id,
       codigo: codigo ?? this.codigo,
       nomeEmpresa: nomeEmpresa ?? this.nomeEmpresa,
       precoAtual: precoAtual ?? this.precoAtual,
+      precoMedio: precoMedio ?? this.precoMedio, // novo
     );
   }
+}
+
+double? _toDouble(dynamic v) {
+  if (v == null) return null;
+  if (v is num) return v.toDouble();
+  if (v is String) return double.tryParse(v.replaceAll(',', '.'));
+  return null;
 }

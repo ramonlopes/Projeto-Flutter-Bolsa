@@ -43,10 +43,16 @@ class AcaoService {
   }
 
   Future<Acao> criarAcao(Acao acao) async {
+    final body = {
+      'codigo': acao.codigo,
+      'nomeEmpresa': acao.nomeEmpresa,
+      'precoAtual': acao.precoAtual,
+      'precoMedio': acao.precoMedio ?? 0, // novo
+    };
     final resp = await client.post(
       Uri.parse('${ApiConfig.baseUrl}/acoes'),
       headers: {'Content-Type': 'application/json'},
-      body: jsonEncode(acao.toJson()),
+      body: jsonEncode(body),
     );
     if (resp.statusCode != 201) {
       throw Exception('Erro ao criar ação: ${resp.body}');
@@ -55,10 +61,16 @@ class AcaoService {
   }
 
   Future<Acao> atualizarAcao(int id, Acao acao) async {
+    final body = {
+      'codigo': acao.codigo,
+      'nomeEmpresa': acao.nomeEmpresa,
+      'precoAtual': acao.precoAtual,
+      'precoMedio': acao.precoMedio ?? 0, // novo
+    };
     final resp = await client.put(
       Uri.parse('${ApiConfig.baseUrl}/acoes/$id'),
       headers: {'Content-Type': 'application/json'},
-      body: jsonEncode(acao.toJson()),
+      body: jsonEncode(body),
     );
     if (resp.statusCode != 200) {
       throw Exception('Erro ao atualizar ação: ${resp.body}');
@@ -105,4 +117,22 @@ class AcaoService {
       precoAtual: toDouble(j['preco_atual'] ?? j['preco'] ?? j['price']),
     );
   }
+}
+
+Acao _fromMap(Map<String, dynamic> m) {
+  return Acao(
+    id: m['id'] as int,
+    codigo: m['codigo'] as String,
+    nomeEmpresa: m['nomeEmpresa'] ?? m['nome_empresa'] ?? '',
+    precoAtual: (m['precoAtual'] is num)
+        ? (m['precoAtual'] as num).toDouble()
+        : (m['preco_atual'] is num)
+            ? (m['preco_atual'] as num).toDouble()
+            : null,
+    precoMedio: (m['precoMedio'] is num) // novo
+        ? (m['precoMedio'] as num).toDouble()
+        : (m['preco_medio'] is num)
+            ? (m['preco_medio'] as num).toDouble()
+            : null,
+  );
 }

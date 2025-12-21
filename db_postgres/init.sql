@@ -22,6 +22,7 @@ CREATE TABLE IF NOT EXISTS acoes (
   codigo VARCHAR(10) NOT NULL,
   nome_empresa VARCHAR(100) NOT NULL,
   preco_atual NUMERIC(10,2) NOT NULL,
+  preco_medio NUMERIC(14,2),
   created_at TIMESTAMP DEFAULT NOW(),
   updated_at TIMESTAMP DEFAULT NOW()  
 );
@@ -62,6 +63,7 @@ CREATE TABLE corretoras (
   nome VARCHAR(120) NOT NULL,
   cnpj VARCHAR(18),
   taxa_corretagem NUMERIC(10,2),
+  saldo NUMERIC(14,2) NOT NULL DEFAULT 0,  
   created_at TIMESTAMP DEFAULT NOW(),
   updated_at TIMESTAMP DEFAULT NOW()
 );

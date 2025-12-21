@@ -771,10 +771,12 @@ class _TransacoesScreenState extends State<TransacoesScreen> {
                             ),
                           )
                         : ListView.builder(
-                            physics: const AlwaysScrollableScrollPhysics(),
-                            padding: const EdgeInsets.only(bottom: 80, top: 8),
-                            itemCount: listaFiltrada.length,
-                            itemBuilder: (_, i) => _card(listaFiltrada[i]),
+                            itemCount: listaFiltrada.length, // era: transacoes.length
+                            itemBuilder: (ctx, i) {
+                              if (i >= listaFiltrada.length) return const SizedBox.shrink(); // era: transacoes.length
+                              final t = listaFiltrada[i]; // era: transacoes[i]
+                              return _card(t);
+                            },
                           ),
                   ),
                 ],

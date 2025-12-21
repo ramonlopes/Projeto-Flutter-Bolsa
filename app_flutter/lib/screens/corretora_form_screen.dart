@@ -17,6 +17,8 @@ class _CorretoraFormScreenState extends State<CorretoraFormScreen> {
   final _nomeController = TextEditingController();
   final _cnpjController = TextEditingController();
   final _taxaController = TextEditingController();
+  final _saldoController = TextEditingController(); // novo
+  int? _usuarioId; // novo
 
   @override
   void initState() {
@@ -24,8 +26,11 @@ class _CorretoraFormScreenState extends State<CorretoraFormScreen> {
     if (widget.corretora != null) {
       _nomeController.text = widget.corretora!.nome;
       _cnpjController.text = widget.corretora!.cnpj ?? '';
-      _taxaController.text = (widget.corretora!.taxaCorretagem ?? '').toString();
+      _taxaController.text = (widget.corretora!.taxaCorretagem)?.toString() ?? '';
+      final saldo = widget.corretora?.saldo ?? 0;
+      _saldoController.text = saldo.toStringAsFixed(2);
     }
+    _usuarioId = widget.corretora?.usuarioId ?? 0; // valor padrão
   }
 
   @override
@@ -33,6 +38,7 @@ class _CorretoraFormScreenState extends State<CorretoraFormScreen> {
     _nomeController.dispose();
     _cnpjController.dispose();
     _taxaController.dispose();
+    _saldoController.dispose();
     super.dispose();
   }
 
@@ -49,13 +55,23 @@ class _CorretoraFormScreenState extends State<CorretoraFormScreen> {
       nome: _nomeController.text.trim(),
       cnpj: _cnpjController.text.trim().isEmpty ? null : _cnpjController.text.trim(),
       taxaCorretagem: _toDouble(_taxaController.text),
+      saldo: double.parse(_saldoController.text.replaceAll(',', '.')),
+      usuarioId: _usuarioId,
     );
 
     try {
       if (widget.corretora == null) {
         await _service.criar(corretora);
       } else {
-        await _service.atualizar(widget.corretora!.id, corretora);
+        final id = widget.corretora?.id;
+        if (id == null) {
+          if (!mounted) return;
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Corretora sem ID. Não é possível atualizar.')),
+          );
+          return;
+        }
+        await _service.atualizar(id, corretora); // id garantido
       }
       if (!mounted) return;
       Navigator.pop(context, true);
@@ -90,6 +106,7 @@ class _CorretoraFormScreenState extends State<CorretoraFormScreen> {
           child: Form(
             key: _formKey,
             child: ListView(
+              padding: const EdgeInsets.all(16),
               children: [
                 Card(
                   elevation: 2,
@@ -139,6 +156,20 @@ class _CorretoraFormScreenState extends State<CorretoraFormScreen> {
                           ),
                           keyboardType: const TextInputType.numberWithOptions(decimal: true),
                         ),
+                        const SizedBox(height: 12),
+                        TextFormField(
+                          controller: _saldoController,
+                          decoration: InputDecoration(
+                            labelText: 'Saldo',
+                            prefixIcon: const Icon(Icons.account_balance_wallet),
+                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                          ),
+                          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                          validator: (v) {
+                            if (v == null || v.isEmpty) return 'Informe o saldo';
+                            return double.tryParse(v.replaceAll(',', '.')) == null ? 'Valor inválido' : null;
+                          },
+                        ),
                       ],
                     ),
                   ),
@@ -159,6 +190,38 @@ class _CorretoraFormScreenState extends State<CorretoraFormScreen> {
             ),
           ),
         ),
+      ),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () async {
+          if (!_formKey.currentState!.validate()) return;
+
+          final corretora = Corretora(
+            id: widget.corretora?.id,
+            nome: _nomeController.text.trim(),
+            cnpj: _cnpjController.text.trim().isEmpty ? null : _cnpjController.text.trim(),
+            taxaCorretagem: double.tryParse(_taxaController.text.replaceAll(',', '.')),
+            usuarioId: _usuarioId,
+            saldo: double.tryParse(_saldoController.text.replaceAll(',', '.')) ?? 0,
+          );
+
+          if (widget.corretora == null) {
+            await _service.criar(corretora);
+          } else {
+            final id = widget.corretora?.id;
+            if (id == null) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Corretora sem ID. Não é possível atualizar.')),
+              );
+              return;
+            }
+            await _service.atualizar(id, corretora);
+          }
+
+          if (!mounted) return;
+          Navigator.pop(context, true);
+        },
+        label: const Text('Salvar'),
+        icon: const Icon(Icons.save),
       ),
     );
   }

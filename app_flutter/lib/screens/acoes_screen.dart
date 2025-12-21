@@ -90,6 +90,14 @@ class _AcoesScreenState extends State<AcoesScreen> {
     }
   }
 
+  Future<void> _editarAcao(Acao acao) async {
+    final ok = await Navigator.push<bool>(
+      context,
+      MaterialPageRoute(builder: (_) => AcaoFormScreen(acao: acao)),
+    );
+    if (ok == true) _recarregar();
+  }
+
   Widget _cardAcao(Acao a) {
     final theme = Theme.of(context);
     final codigoYahoo = a.codigo.toUpperCase().contains('.') 
@@ -320,13 +328,33 @@ class _AcoesScreenState extends State<AcoesScreen> {
                 );
               }
 
-              return ListView(
-                physics: const AlwaysScrollableScrollPhysics(),
-                children: [
-                  _header(),
-                  ...acoes.map(_cardAcao),
-                  const SizedBox(height: 80),
-                ],
+              return ListView.builder(
+                itemCount: acoes.length, // garanta que está usando .length
+                itemBuilder: (ctx, i) {
+                  if (i >= acoes.length) return const SizedBox.shrink(); // proteção extra
+                  final acao = acoes[i];
+                  return Card(
+                    child: ListTile(
+                      title: Text(acao.codigo),
+                      subtitle: Text(acao.nomeEmpresa),
+                      trailing: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          Text(
+                            'Atual: ${_currency.format(acao.precoAtual ?? 0)}',
+                            style: const TextStyle(fontWeight: FontWeight.bold),
+                          ),
+                          Text(
+                            'Médio: ${_currency.format(acao.precoMedio ?? 0)}',
+                            style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
+                          ),
+                        ],
+                      ),
+                      onTap: () => _editarAcao(acao),
+                    ),
+                  );
+                },
               );
             },
           ),

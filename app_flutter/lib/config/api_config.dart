@@ -7,7 +7,8 @@ class ApiConfig {
     if (kIsWeb) return 'http://localhost:3000';
     if (defaultTargetPlatform == TargetPlatform.android) {
       // Troque pelo IP do seu PC (ipconfig)
-      return 'http://192.168.0.100:3000';
+      return 'http://192.168.10.18:3000';
+      // return 'http://10.10.10.247:3000';
     }
     return 'http://localhost:3000';
   }

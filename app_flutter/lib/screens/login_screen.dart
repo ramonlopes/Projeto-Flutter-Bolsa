@@ -51,6 +51,33 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
+  Future<void> _criarConta() async {
+    if (!_formKey.currentState!.validate()) return;
+    setState(() => _loading = true);
+    try {
+      await _auth.register(_email.text.trim(), _senha.text);
+      if (!mounted) return;
+      Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const HomeScreen()));
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Row(
+            children: [
+              const Icon(Icons.error_outline, color: Colors.white),
+              const SizedBox(width: 8),
+              Expanded(child: Text('Falha ao criar conta: $e')),
+            ],
+          ),
+          backgroundColor: Colors.red.shade700,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -161,7 +188,10 @@ class _LoginScreenState extends State<LoginScreen> {
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
                             const Text('Não tem conta? ', style: TextStyle(color: Colors.grey)),
-                            TextButton(onPressed: () {}, child: const Text('Criar conta')),
+                            TextButton(
+                              onPressed: _loading ? null : _criarConta,
+                              child: const Text('Criar conta'),
+                            ),
                           ],
                         ),
                       ],

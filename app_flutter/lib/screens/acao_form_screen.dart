@@ -19,6 +19,7 @@ class _AcaoFormScreenState extends State<AcaoFormScreen> {
   final _codigoController = TextEditingController();
   final _nomeController = TextEditingController();
   final _precoAtualController = TextEditingController();
+  final _precoMedioController = TextEditingController(); // novo
   bool _buscandoPreco = false;
 
   @override
@@ -28,6 +29,7 @@ class _AcaoFormScreenState extends State<AcaoFormScreen> {
       _codigoController.text = widget.acao!.codigo;
       _nomeController.text = widget.acao!.nomeEmpresa;
       _precoAtualController.text = (widget.acao!.precoAtual ?? '').toString();
+      _precoMedioController.text = (widget.acao!.precoMedio ?? '').toString(); // novo
       // Busca cotação atualizada ao carregar para edição
       Future.microtask(() => _buscarCotacao());
     }
@@ -40,6 +42,7 @@ class _AcaoFormScreenState extends State<AcaoFormScreen> {
     _codigoController.dispose();
     _nomeController.dispose();
     _precoAtualController.dispose();
+    _precoMedioController.dispose(); // novo
     _yahoo.dispose();
     super.dispose();
   }
@@ -93,6 +96,7 @@ class _AcaoFormScreenState extends State<AcaoFormScreen> {
       codigo: _codigoController.text.trim(),
       nomeEmpresa: _nomeController.text.trim(),
       precoAtual: _toDouble(_precoAtualController.text),
+      precoMedio: _toDouble(_precoMedioController.text), // novo
     );
 
     try {
@@ -118,7 +122,7 @@ class _AcaoFormScreenState extends State<AcaoFormScreen> {
       body: Padding(
         padding: const EdgeInsets.all(16),
         child: Form(
-          key: _formKey, // CORRIGE
+          key: _formKey,
           child: ListView(
             children: [
               TextFormField(
@@ -163,6 +167,17 @@ class _AcaoFormScreenState extends State<AcaoFormScreen> {
                       const SizedBox(width: 8),
                     ],
                   ),
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: _precoMedioController,
+                keyboardType:
+                    const TextInputType.numberWithOptions(decimal: true),
+                decoration: const InputDecoration(
+                  labelText: 'Preço Médio (opcional)',
+                  border: OutlineInputBorder(),
+                  prefixIcon: Icon(Icons.calculate),
                 ),
               ),
               const SizedBox(height: 16),

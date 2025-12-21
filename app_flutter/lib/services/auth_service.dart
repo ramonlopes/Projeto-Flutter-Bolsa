@@ -45,4 +45,21 @@ class AuthService {
   Future<bool> isLoggedIn() async {
     return (await getToken()) != null;
   }
+
+  Future<void> register(String email, String senha) async {
+    final url = Uri.parse('${ApiConfig.baseUrl}/usuarios');
+    final resp = await client.post(
+      url,
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({
+        'email': email,
+        'senha': senha,
+        'nome': email.split('@')[0], // ou peça nome na tela de cadastro
+      }),
+    );
+    if (resp.statusCode != 200 && resp.statusCode != 201) {
+      final error = jsonDecode(resp.body)['error'] ?? resp.body;
+      throw Exception('Falha ao criar conta: $error');
+    }
+  }
 }

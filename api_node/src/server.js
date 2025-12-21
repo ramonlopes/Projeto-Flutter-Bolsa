@@ -18,6 +18,9 @@ const start = async () => {
     app.listen(PORT, '0.0.0.0', () => {
       console.log(`Servidor rodando em http://localhost:${PORT}`);
     });
+    // app.listen(PORT, '192.168.10.18', () => {
+    //   console.log(`Servidor rodando em http://192.168.10.18:${PORT}`);
+    // });    
   } catch (e) {
     console.error('Erro ao iniciar servidor:', e);
     process.exit(1);
