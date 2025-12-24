@@ -1,0 +1,27 @@
+version: '3'
+
+services:
+  db:
+    image: postgres
+    container_name: database
+    restart: always
+    volumes:
+     - pgdata:/var/lib/postgresql/data
+    environment:
+      POSTGRES_PASSWORD: sua-senha
+    ports:
+      - 6033:3306
+phpmyadmin:
+    image: phpmyadmin/phpmyadmin
+    container_name: pma
+    links:
+      - database
+    environment:
+      PMA_HOST: database
+      PMA_PORT: 3306
+      PMA_ARBITRARY: 1
+    restart: always
+    ports:
+      - 8080:80     
+volumes:
+  pgdata:

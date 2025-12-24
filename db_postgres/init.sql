@@ -3,7 +3,7 @@
 -- psql -U postgres -f init.sql
 
 -- cria banco (se desejar criar via script, remova o CREATE DATABASE se já criar via pgAdmin)
--- CREATE DATABASE bolsa_db;
+CREATE DATABASE bolsa_db;
 
 -- Tabela de usuários
 CREATE TABLE IF NOT EXISTS usuarios (
