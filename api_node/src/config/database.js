@@ -15,10 +15,11 @@ if (process.env.DATABASE_URL) {
     process.env.POSTGRES_USER,
     process.env.POSTGRES_PASSWORD,
     {
-      host: process.env.POSTGRES_HOST,
-      port: process.env.POSTGRES_PORT ? parseInt(process.env.POSTGRES_PORT,10):5432,
+      host: process.env.POSTGRES_HOST || 'localhost',
+      port: Number(process.env.POSTGRES_PORT || 5432),
       dialect: 'postgres',
       logging: console.log,
+      pool: { max: 5, min: 0 },
       dialectOptions: { ssl: false }
     }
   );

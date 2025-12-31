@@ -18,7 +18,7 @@ done
 
 # Cria o banco de dados e usuário se necessário
 psql -c "CREATE USER bolsa_user WITH PASSWORD 'bolsa';"
-psql -c "CREATE DATABASE bolsa_db WITH OWNER bolsa_user;"
+psql -c "CREATE DATABASE bolsa_db WITH OWNER postgres;"
 psql -d bolsa_db -c "GRANT ALL PRIVILEGES ON DATABASE bolsa_db TO bolsa_user;"
 pg_restore -d bolsa_db /tmp/cargainicial.dmp
 
